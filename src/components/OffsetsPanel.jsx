@@ -2,7 +2,18 @@
 
 import { uploadCalibrationCert } from '@/lib/projectsApi';
 
-const PALETTE = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777'];
+// Paleta categórica validada (orden fijo, no ciclado por hue): separación
+// segura para daltonismo entre pares adyacentes en fondo claro.
+const PALETTE = [
+  '#2a78d6', // azul
+  '#eb6834', // naranja
+  '#1baf7a', // aqua
+  '#eda100', // amarillo
+  '#e87ba4', // magenta
+  '#008300', // verde
+  '#4a3aa7', // violeta
+  '#e34948', // rojo
+];
 
 /**
  * Corrección de data cruda por sensor: offset (°C) + datos del certificado

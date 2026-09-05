@@ -32,11 +32,20 @@ export default function TemperatureChart({ time, correctedSeries, sensors, timeU
   return (
     <ResponsiveContainer width="100%" height={320}>
       <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="time" label={{ value: `Tiempo (${timeUnit})`, position: 'insideBottom', offset: -4 }} />
-        <YAxis label={{ value: 'Temperatura (°C)', angle: -90, position: 'insideLeft' }} />
-        <Tooltip />
-        <Legend />
+        <CartesianGrid stroke="#e1e0d9" vertical={false} />
+        <XAxis
+          dataKey="time"
+          stroke="#c3c2b7"
+          tick={{ fill: '#898781', fontSize: 12 }}
+          label={{ value: `Tiempo (${timeUnit})`, position: 'insideBottom', offset: -4, fill: '#898781' }}
+        />
+        <YAxis
+          stroke="#c3c2b7"
+          tick={{ fill: '#898781', fontSize: 12 }}
+          label={{ value: 'Temperatura (°C)', angle: -90, position: 'insideLeft', fill: '#898781' }}
+        />
+        <Tooltip contentStyle={{ border: '1px solid rgba(11,11,11,0.1)', borderRadius: 8, fontSize: 13 }} />
+        <Legend wrapperStyle={{ fontSize: 13, color: '#52514e' }} />
         {sensors.map((s) => (
           <Line
             key={s.id}
