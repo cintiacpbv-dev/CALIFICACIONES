@@ -33,11 +33,19 @@ Abre http://localhost:3000
    completo. Crea las tablas `projects` y `sensors`, dejа las políticas RLS
    abiertas (sin login, como pide el proyecto) y crea el bucket de Storage
    `calibration-certs` para los PDFs de calibración.
-3. Copiar `Project URL` y `anon public key` (Settings → API) a
-   `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+3. Copiar `Project URL` y `Publishable key` (Settings → API → Project API
+   keys) a `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
-Sin estas variables la app igual carga, pero el panel de proyectos avisa que
-no hay guardado en la nube (no hay fallback a `localStorage`: el requisito es
+La app depende solo de esas dos variables — la misma URL + clave pública que
+usa el resto de los proyectos de la organización con Supabase. Si conectás
+la integración de Supabase desde el Marketplace de Vercel, ésta agrega de
+más un montón de variables `POSTGRES_*` (URL directa, pooling, credenciales)
+pensadas para usar un ORM como Prisma: esta app no las usa ni las necesita,
+podés dejarlas ahí sin efecto.
+
+Sin las dos variables que sí usa, la app igual carga, pero el panel de
+proyectos avisa que no hay guardado en la nube (no hay fallback a
+`localStorage`: el requisito es
 persistencia en Supabase).
 
 ## Desplegar en Vercel
