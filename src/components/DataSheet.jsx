@@ -10,8 +10,7 @@ import { parseDataFile, parsePastedText } from '@/lib/dataImport';
  * 1. Edición celda a celda con una tabla editable simple — se prefirió a una
  *    librería de grid de terceros (evaluada y descartada: la única versión
  *    de react-data-grid compatible con esta versión de React depende de una
- *    API todavía no soportada por el pipeline de build de Next.js). Una
- *    tabla de <input> cubre la misma necesidad sin ese riesgo de versión.
+ *    API todavía no soportada por el pipeline de build de Next.js).
  * 2. "Pegar / importar datos": pega un bloque TSV (tal cual copia Excel) o
  *    sube un CSV/XLSX, y reemplaza la hoja entera de una sola vez. Es el
  *    camino robusto para cargar un lote completo, sin depender de eventos
@@ -83,86 +82,128 @@ export default function DataSheet({ time, series, sensors, onChange }) {
   }
 
   function handlePasteApply() {
-    const dataset = parsePastedText(pasteText);
-    applyImportedDataset(dataset);
+    applyImportedDataset(parsePastedText(pasteText));
     setPasteOpen(false);
     setPasteText('');
   }
 
+  const hasSensors = sensors.length > 0;
+  const hasRows = time.length > 0;
+
   return (
-    <div className="data-sheet">
-      <div className="data-sheet-toolbar">
-        <button onClick={addRow}>+ Fila</button>
-        <button onClick={removeLastRow}>- Fila</button>
-        <button onClick={() => setPasteOpen(true)}>Pegar datos</button>
-        <label className="file-upload-btn">
-          Cargar CSV / Excel
-          <input type="file" accept=".csv,.txt,.xlsx,.xls" onChange={handleFileUpload} hidden />
-        </label>
+    <section className="card">
+      <div className="card-head">
+        <h2 className="card-title">Hoja de datos</h2>
+        <span className="card-hint">
+          {hasRows ? `${time.length} lecturas · ${sensors.length} sensores` : 'Sin datos'}
+        </span>
+        <div className="card-actions">
+          <button className="btn btn-ghost" onClick={removeLastRow} disabled={!hasRows}>
+            − Fila
+          </button>
+          <button className="btn btn-ghost" onClick={addRow} disabled={!hasSensors}>
+            + Fila
+          </button>
+          <button className="btn" onClick={() => setPasteOpen(true)} disabled={!hasSensors}>
+            Pegar datos
+          </button>
+          <label className={`btn btn-primary${hasSensors ? '' : ' is-disabled'}`}>
+            Cargar CSV / Excel
+            <input
+              type="file"
+              accept=".csv,.txt,.xlsx,.xls"
+              onChange={handleFileUpload}
+              disabled={!hasSensors}
+              hidden
+            />
+          </label>
+        </div>
       </div>
 
-      <div className="sheet-scroll">
-        <table className="sheet-table">
-          <thead>
-            <tr>
-              <th>Tiempo</th>
-              {sensors.map((s) => (
-                <th key={s.id} style={{ borderBottom: `3px solid ${s.color}` }}>
-                  {s.name}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {time.map((t, rowIdx) => (
-              <tr key={rowIdx}>
-                <td>
-                  <input
-                    type="number"
-                    value={t ?? ''}
-                    onChange={(e) => setCell(rowIdx, 'time', e.target.value)}
-                  />
-                </td>
-                {sensors.map((s) => (
-                  <td key={s.id}>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={series[s.id]?.[rowIdx] ?? ''}
-                      onChange={(e) => setCell(rowIdx, s.id, e.target.value)}
-                    />
-                  </td>
+      <div className="card-body flush">
+        {!hasSensors ? (
+          <p className="empty">
+            <strong>Todavía no hay sensores</strong>
+            Agregá al menos un sensor abajo para empezar a cargar temperaturas.
+          </p>
+        ) : !hasRows ? (
+          <p className="empty">
+            <strong>La hoja está vacía</strong>
+            Pegá los datos desde Excel, cargá un CSV, o agregá filas a mano.
+          </p>
+        ) : (
+          <div className="sheet-scroll">
+            <table className="sheet-table">
+              <thead>
+                <tr>
+                  <th scope="col">Tiempo</th>
+                  {sensors.map((s) => (
+                    <th key={s.id} scope="col">
+                      <span className="sheet-swatch" style={{ background: s.color }} />
+                      {s.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {time.map((t, rowIdx) => (
+                  <tr key={rowIdx}>
+                    <td>
+                      <input
+                        type="number"
+                        aria-label={`Tiempo, fila ${rowIdx + 1}`}
+                        value={t ?? ''}
+                        onChange={(e) => setCell(rowIdx, 'time', e.target.value)}
+                      />
+                    </td>
+                    {sensors.map((s) => (
+                      <td key={s.id}>
+                        <input
+                          type="number"
+                          step="0.01"
+                          aria-label={`${s.name}, fila ${rowIdx + 1}`}
+                          value={series[s.id]?.[rowIdx] ?? ''}
+                          onChange={(e) => setCell(rowIdx, s.id, e.target.value)}
+                        />
+                      </td>
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {pasteOpen && (
         <div className="modal-backdrop" onClick={() => setPasteOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Pegar datos</h3>
-            <p>
-              Pega el bloque copiado de Excel (primera columna = Tiempo, luego una columna por
-              sensor, en el mismo orden que las columnas de la hoja). Esto reemplaza los datos
-              actuales.
-            </p>
-            <textarea
-              rows={12}
-              value={pasteText}
-              onChange={(e) => setPasteText(e.target.value)}
-              placeholder={'Tiempo\tSensor 1\tSensor 2\n0\t20.1\t19.8\n1\t45.3\t44.9'}
-            />
-            <div className="modal-actions">
-              <button onClick={() => setPasteOpen(false)}>Cancelar</button>
-              <button className="primary" onClick={handlePasteApply} disabled={!pasteText.trim()}>
+            <div className="card-head">
+              <h2 className="card-title">Pegar datos</h2>
+            </div>
+            <div className="modal-body">
+              <p>
+                Pegá el bloque copiado de Excel: primera columna <strong>Tiempo</strong>, después una
+                columna por sensor en el mismo orden que la hoja. Reemplaza los datos actuales.
+              </p>
+              <textarea
+                rows={10}
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                placeholder={'Tiempo\tSensor 1\tSensor 2\n0\t20.1\t19.8\n1\t45.3\t44.9'}
+              />
+            </div>
+            <div className="modal-foot">
+              <button className="btn btn-ghost" onClick={() => setPasteOpen(false)}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" onClick={handlePasteApply} disabled={!pasteText.trim()}>
                 Aplicar
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }

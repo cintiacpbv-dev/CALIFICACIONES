@@ -10,10 +10,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import ChartTooltip from './ChartTooltip';
+
+const AXIS = '#8d9a94';
+const GRID = '#eaeeec';
+const LINE = '#dde3e0';
 
 /**
- * Gráfico 1: curvas de temperatura corregida (°C) vs. tiempo, todos los
- * sensores superpuestos.
+ * Curvas de temperatura corregida (°C) vs. tiempo, todos los sensores
+ * superpuestos. La leyenda va arriba: abajo se pisaba con el rótulo del eje X.
  *
  * @param {{
  *   time: number[],
@@ -30,35 +35,68 @@ export default function TemperatureChart({ time, correctedSeries, sensors, timeU
   });
 
   return (
-    <ResponsiveContainer width="100%" height={320}>
-      <LineChart data={data} margin={{ top: 20, right: 16, bottom: 8, left: 12 }}>
-        <CartesianGrid stroke="#dee6e1" vertical={false} />
-        <XAxis
-          dataKey="time"
-          stroke="#b9c6bd"
-          tick={{ fill: '#7c8b82', fontSize: 12 }}
-          label={{ value: `Tiempo (${timeUnit})`, position: 'insideBottom', offset: -4, fill: '#7c8b82' }}
-        />
-        <YAxis
-          stroke="#b9c6bd"
-          tick={{ fill: '#7c8b82', fontSize: 12 }}
-          label={{ value: 'Temperatura (°C)', angle: -90, position: 'insideLeft', fill: '#7c8b82' }}
-        />
-        <Tooltip contentStyle={{ border: '1px solid rgba(13,31,22,0.1)', borderRadius: 8, fontSize: 13 }} />
-        <Legend wrapperStyle={{ fontSize: 13, color: '#4a5951' }} />
-        {sensors.map((s) => (
-          <Line
-            key={s.id}
-            type="monotone"
-            dataKey={s.id}
-            name={s.name}
-            stroke={s.color}
-            dot={false}
-            connectNulls
-            isAnimationActive={false}
-          />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
+    <section className="card">
+      <div className="card-head">
+        <h2 className="card-title">Temperatura corregida</h2>
+        <span className="card-hint">Data cruda + offset de cada sensor</span>
+      </div>
+
+      <div className="card-body chart-body">
+        {data.length === 0 ? (
+          <p className="empty">Sin datos para graficar.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={data} margin={{ top: 4, right: 12, bottom: 22, left: 4 }}>
+              <CartesianGrid stroke={GRID} vertical={false} />
+              <XAxis
+                dataKey="time"
+                stroke={LINE}
+                tick={{ fill: AXIS }}
+                tickMargin={8}
+                label={{
+                  value: `Tiempo (${timeUnit})`,
+                  position: 'insideBottom',
+                  offset: -14,
+                  fill: AXIS,
+                  fontSize: 12,
+                }}
+              />
+              <YAxis
+                stroke={LINE}
+                tick={{ fill: AXIS }}
+                tickMargin={4}
+                width={52}
+                label={{ value: '°C', angle: -90, position: 'insideLeft', fill: AXIS, fontSize: 12 }}
+              />
+              <Tooltip
+                content={<ChartTooltip xLabel={`Tiempo (${timeUnit}):`} unit="°C" />}
+                cursor={{ stroke: AXIS, strokeDasharray: '3 3' }}
+              />
+              <Legend
+                verticalAlign="top"
+                align="right"
+                iconType="plainline"
+                iconSize={14}
+                wrapperStyle={{ fontSize: 12, paddingBottom: 12 }}
+              />
+              {sensors.map((s) => (
+                <Line
+                  key={s.id}
+                  type="monotone"
+                  dataKey={s.id}
+                  name={s.name}
+                  stroke={s.color}
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </section>
   );
 }

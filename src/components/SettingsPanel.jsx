@@ -12,64 +12,83 @@
  */
 export default function SettingsPanel({ project, onChange }) {
   return (
-    <div className="settings-panel">
-      <fieldset>
-        <legend>F0 (referencia)</legend>
-        <label>
-          Temp. referencia (°C)
-          <input
-            type="number"
-            step="0.1"
-            value={project.ref_temp_f0}
-            onChange={(e) => onChange({ ref_temp_f0: Number(e.target.value) })}
-          />
-        </label>
-        <label>
-          z (°C)
-          <input
-            type="number"
-            step="0.1"
-            value={project.z_value_f0}
-            onChange={(e) => onChange({ z_value_f0: Number(e.target.value) })}
-          />
-        </label>
-      </fieldset>
+    <section className="card">
+      <div className="card-head">
+        <h2 className="card-title">Parámetros de cálculo</h2>
+        <span className="card-hint">L(t) = 10^((T − Tref) / z)</span>
+      </div>
 
-      <fieldset>
-        <legend>FH (referencia)</legend>
-        <label>
-          Temp. referencia (°C)
-          <input
-            type="number"
-            step="0.1"
-            value={project.ref_temp_fh}
-            onChange={(e) => onChange({ ref_temp_fh: Number(e.target.value) })}
-          />
-        </label>
-        <label>
-          z (°C)
-          <input
-            type="number"
-            step="0.1"
-            value={project.z_value_fh}
-            onChange={(e) => onChange({ z_value_fh: Number(e.target.value) })}
-          />
-        </label>
-      </fieldset>
+      <div className="card-body">
+        <div className="param-grid">
+          <div className="param-group">
+            <div className="param-group-title">F0 — referencia</div>
+            <div className="param-fields">
+              <label className="field">
+                <span className="field-label">Tref (°C)</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="num"
+                  value={project.ref_temp_f0}
+                  onChange={(e) => onChange({ ref_temp_f0: Number(e.target.value) })}
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">z (°C)</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="num"
+                  value={project.z_value_f0}
+                  onChange={(e) => onChange({ z_value_f0: Number(e.target.value) })}
+                />
+              </label>
+            </div>
+          </div>
 
-      <fieldset>
-        <legend>Tiempo</legend>
-        <label>
-          Unidad
-          <select
-            value={project.time_unit}
-            onChange={(e) => onChange({ time_unit: e.target.value })}
-          >
-            <option value="min">Minutos</option>
-            <option value="s">Segundos</option>
-          </select>
-        </label>
-      </fieldset>
-    </div>
+          <div className="param-group">
+            <div className="param-group-title">FH — referencia</div>
+            <div className="param-fields">
+              <label className="field">
+                <span className="field-label">Tref (°C)</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="num"
+                  value={project.ref_temp_fh}
+                  onChange={(e) => onChange({ ref_temp_fh: Number(e.target.value) })}
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">z (°C)</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="num"
+                  value={project.z_value_fh}
+                  onChange={(e) => onChange({ z_value_fh: Number(e.target.value) })}
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="param-group">
+            <div className="param-group-title">Tiempo</div>
+            <div className="param-fields">
+              <label className="field">
+                <span className="field-label">Unidad de la columna Tiempo</span>
+                <select
+                  value={project.time_unit}
+                  onChange={(e) => onChange({ time_unit: e.target.value })}
+                >
+                  <option value="min">Minutos</option>
+                  <option value="s">Segundos</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

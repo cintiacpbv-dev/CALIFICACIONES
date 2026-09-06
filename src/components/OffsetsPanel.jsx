@@ -26,7 +26,7 @@ const PALETTE = [
  * @param {{
  *   sensors: {id:string, name:string, color:string, offset_celsius:number,
  *             calibration_cert_number?:string, calibration_date?:string,
- *             calibration_notes?:string, certificate_file_url?:string}[],
+ *             certificate_file_url?:string}[],
  *   onUpdateSensor: (id: string, fields: object) => void,
  *   onAddSensor: () => void,
  *   onRemoveSensor: (id: string) => void,
@@ -43,86 +43,120 @@ export default function OffsetsPanel({ sensors, onUpdateSensor, onAddSensor, onR
   }
 
   return (
-    <div className="offsets-panel">
-      <div className="offsets-header">
-        <h3>Sensores y factores de corrección</h3>
-        <button onClick={onAddSensor}>+ Sensor</button>
+    <section className="card">
+      <div className="card-head">
+        <h2 className="card-title">Sensores y offsets</h2>
+        <span className="card-hint">El offset se suma a la data cruda antes de calcular</span>
+        <div className="card-actions">
+          <button className="btn btn-primary" onClick={onAddSensor}>
+            + Sensor
+          </button>
+        </div>
       </div>
 
-      <table className="offsets-table">
-        <thead>
-          <tr>
-            <th>Sensor</th>
-            <th>Offset (°C)</th>
-            <th>N° certificado</th>
-            <th>Fecha calibración</th>
-            <th>Certificado (PDF)</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {sensors.map((s) => (
-            <tr key={s.id}>
-              <td>
-                <input
-                  type="text"
-                  value={s.name}
-                  onChange={(e) => onUpdateSensor(s.id, { name: e.target.value })}
-                  style={{ borderLeft: `4px solid ${s.color}` }}
-                />
-              </td>
-              <td>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={s.offset_celsius}
-                  onChange={(e) =>
-                    onUpdateSensor(s.id, { offset_celsius: Number(e.target.value) || 0 })
-                  }
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  value={s.calibration_cert_number ?? ''}
-                  onChange={(e) => onUpdateSensor(s.id, { calibration_cert_number: e.target.value })}
-                />
-              </td>
-              <td>
-                <input
-                  type="date"
-                  value={s.calibration_date ?? ''}
-                  onChange={(e) => onUpdateSensor(s.id, { calibration_date: e.target.value })}
-                />
-              </td>
-              <td>
-                {s.certificate_file_url ? (
-                  <a href={s.certificate_file_url} target="_blank" rel="noreferrer">
-                    Ver PDF
-                  </a>
-                ) : (
-                  <span className="muted">Sin cargar</span>
-                )}
-                <label className="file-upload-btn small">
-                  {s.certificate_file_url ? 'Reemplazar' : 'Subir'}
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    hidden
-                    onChange={(e) => e.target.files?.[0] && handleCertUpload(s.id, e.target.files[0])}
-                  />
-                </label>
-              </td>
-              <td>
-                <button className="danger" onClick={() => onRemoveSensor(s.id)}>
-                  Eliminar
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+      <div className="card-body">
+        {sensors.length === 0 ? (
+          <p className="empty">
+            <strong>Sin sensores cargados</strong>
+            Cada termocupla es una columna de la hoja y una curva en los gráficos.
+          </p>
+        ) : (
+          <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Sensor</th>
+                <th scope="col">Offset (°C)</th>
+                <th scope="col">N° certificado</th>
+                <th scope="col">Fecha calibración</th>
+                <th scope="col">Certificado</th>
+                <th scope="col" aria-label="Acciones" />
+              </tr>
+            </thead>
+            <tbody>
+              {sensors.map((s) => (
+                <tr key={s.id}>
+                  <td>
+                    <div className="sensor-cell">
+                      <span className="swatch" style={{ background: s.color }} />
+                      <input
+                        type="text"
+                        aria-label="Nombre del sensor"
+                        value={s.name}
+                        onChange={(e) => onUpdateSensor(s.id, { name: e.target.value })}
+                      />
+                    </div>
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="num"
+                      aria-label={`Offset de ${s.name}`}
+                      value={s.offset_celsius}
+                      onChange={(e) =>
+                        onUpdateSensor(s.id, { offset_celsius: Number(e.target.value) || 0 })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      aria-label={`Certificado de ${s.name}`}
+                      placeholder="—"
+                      value={s.calibration_cert_number ?? ''}
+                      onChange={(e) =>
+                        onUpdateSensor(s.id, { calibration_cert_number: e.target.value })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="date"
+                      aria-label={`Fecha de calibración de ${s.name}`}
+                      value={s.calibration_date ?? ''}
+                      onChange={(e) => onUpdateSensor(s.id, { calibration_date: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <div className="cert-cell">
+                      {s.certificate_file_url ? (
+                        <a href={s.certificate_file_url} target="_blank" rel="noreferrer">
+                          Ver PDF
+                        </a>
+                      ) : (
+                        <span className="card-hint">Sin cargar</span>
+                      )}
+                      <label className="file-btn">
+                        {s.certificate_file_url ? 'Reemplazar' : 'Subir'}
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          hidden
+                          onChange={(e) =>
+                            e.target.files?.[0] && handleCertUpload(s.id, e.target.files[0])
+                          }
+                        />
+                      </label>
+                    </div>
+                  </td>
+                  <td>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => onRemoveSensor(s.id)}
+                      aria-label={`Eliminar ${s.name}`}
+                    >
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

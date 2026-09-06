@@ -37,7 +37,6 @@ export default function ProjectWorkspace({ projectId }) {
   const [sensors, setSensors] = useState([]);
   const [settings, setSettings] = useState(null);
   const [name, setName] = useState('');
-  const [lethalityMetric, setLethalityMetric] = useState('f0');
 
   useEffect(() => {
     let cancelled = false;
@@ -153,71 +152,74 @@ export default function ProjectWorkspace({ projectId }) {
     setSensors((prev) => prev.map((s) => (s.id === id ? { ...s, ...fields } : s)));
   }
 
-  if (loading || !settings) return <p>Cargando proyecto…</p>;
+  if (loading || !settings) {
+    return (
+      <div className="page">
+        <p className="empty">Cargando proyecto…</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="project-workspace">
-      <header className="workspace-header">
-        <Link href="/">&larr; Proyectos</Link>
+    <>
+      <header className="appbar">
+        <Link href="/" className="brand">
+          <span className="brand-mark">F0</span>
+          <span className="brand-name">Letalidad térmica</span>
+        </Link>
+        <span className="appbar-divider" />
         <input
-          className="project-name-input"
+          className="input project-name-input"
+          aria-label="Nombre del proyecto"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
+        <span className="appbar-spacer" />
         <AutosaveBadge status={autosaveStatus} />
       </header>
 
-      <section>
-        <h3>1. Data cruda</h3>
-        <DataSheet time={rawData.time} series={rawData.series} sensors={sensors} onChange={setRawData} />
-      </section>
+      <div className="page">
+        <div className="stack">
+          <div className="group-label">Entrada de datos</div>
 
-      <section>
-        <h3>2. Corrección de sensores (offsets)</h3>
-        <OffsetsPanel
-          sensors={sensors}
-          onUpdateSensor={handleUpdateSensor}
-          onAddSensor={handleAddSensor}
-          onRemoveSensor={handleRemoveSensor}
-        />
-      </section>
+          <DataSheet
+            time={rawData.time}
+            series={rawData.series}
+            sensors={sensors}
+            onChange={setRawData}
+          />
 
-      <section>
-        <h3>3. Parámetros F0 / FH</h3>
-        <SettingsPanel project={settings} onChange={(f) => setSettings((prev) => ({ ...prev, ...f }))} />
-      </section>
+          <OffsetsPanel
+            sensors={sensors}
+            onUpdateSensor={handleUpdateSensor}
+            onAddSensor={handleAddSensor}
+            onRemoveSensor={handleRemoveSensor}
+          />
 
-      <section>
-        <h3>4. Resultados</h3>
-        <ResultsSummary sensors={sensors} results={results} />
-      </section>
+          <SettingsPanel
+            project={settings}
+            onChange={(f) => setSettings((prev) => ({ ...prev, ...f }))}
+          />
 
-      <section>
-        <h3>5. Temperatura corregida vs. tiempo</h3>
-        <TemperatureChart
-          time={rawData.time}
-          correctedSeries={correctedSeries}
-          sensors={sensors}
-          timeUnit={settings.time_unit}
-        />
-      </section>
+          <div className="group-label">Resultados</div>
 
-      <section>
-        <div className="lethality-header">
-          <h3>6. Letalidad acumulada</h3>
-          <select value={lethalityMetric} onChange={(e) => setLethalityMetric(e.target.value)}>
-            <option value="f0">F0</option>
-            <option value="fh">FH</option>
-          </select>
+          <ResultsSummary sensors={sensors} results={results} />
+
+          <TemperatureChart
+            time={rawData.time}
+            correctedSeries={correctedSeries}
+            sensors={sensors}
+            timeUnit={settings.time_unit}
+          />
+
+          <LethalityChart
+            time={rawData.time}
+            results={results}
+            sensors={sensors}
+            timeUnit={settings.time_unit}
+          />
         </div>
-        <LethalityChart
-          time={rawData.time}
-          results={results}
-          sensors={sensors}
-          metric={lethalityMetric}
-          timeUnit={settings.time_unit}
-        />
-      </section>
-    </div>
+      </div>
+    </>
   );
 }
