@@ -126,7 +126,8 @@ export default function ResultsSummary({ sensors, results }) {
           <strong>Trapecio</strong>: integración recomendada por la bibliografía, tolera intervalos
           irregulares. <strong>Suma</strong>: réplica del método de suma acumulada (F[i]=F[i-1]+tasa·Δt)
           usado en las planillas de validación de referencia — sirve para conciliar contra corridas
-          históricas. Ambos parten del mismo punto de inicio marcado en la hoja de datos.
+          históricas. Ambos cuentan sólo dentro de la ventana ● inicio → ● fin marcada en la hoja de
+          datos.
         </p>
       )}
     </section>

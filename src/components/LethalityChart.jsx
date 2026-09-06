@@ -31,7 +31,7 @@ const LINE = '#dde3e0';
  *   timeUnit: 'min'|'s',
  * }} props
  */
-export default function LethalityChart({ time, results, sensors, timeUnit, startTime }) {
+export default function LethalityChart({ time, results, sensors, timeUnit, startTime, endTime }) {
   const [metric, setMetric] = useState('f0');
   const [method, setMethod] = useState('trap');
 
@@ -117,7 +117,15 @@ export default function LethalityChart({ time, results, sensors, timeUnit, start
                   x={startTime}
                   stroke="#eb6834"
                   strokeDasharray="4 3"
-                  label={{ value: 'Inicio F0/FH', position: 'insideTopLeft', fill: '#eb6834', fontSize: 11 }}
+                  label={{ value: 'inicio F0/FH', position: 'insideTopLeft', fill: '#eb6834', fontSize: 11 }}
+                />
+              )}
+              {endTime != null && (
+                <ReferenceLine
+                  x={endTime}
+                  stroke="#eb6834"
+                  strokeDasharray="4 3"
+                  label={{ value: 'fin F0/FH', position: 'insideTopRight', fill: '#eb6834', fontSize: 11 }}
                 />
               )}
               {sensors.map((s) => (

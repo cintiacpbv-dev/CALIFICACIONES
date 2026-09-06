@@ -20,10 +20,14 @@ import { applyCalibrationToDataset } from './calibration';
 //   de referencia. Se ofrece para poder conciliar contra esos históricos;
 //   asume pasos de tiempo razonablemente regulares.
 //
-// Ambos aceptan un `startIndex`: en las planillas reales el conteo de F0/FH
-// no arranca en t=0 del registro sino en una fila que se elige a mano
-// (no sigue una regla fija de temperatura/tiempo) — acá se replica dejando
-// marcar esa fila desde la hoja de datos.
+// Ambos aceptan una VENTANA de conteo `[startIndex, endIndex]`: en las
+// planillas reales el conteo de F0/FH no cubre todo el registro, sino sólo
+// el tramo de exposición — arranca en una fila elegida a mano y CORTA
+// cuando termina la meseta, antes del enfriamiento. Verificado contra una
+// corrida real: integrar hasta el final del registro sobreestima el F0 un
+// 4,6%. Ninguno de los dos límites sigue una regla fija de
+// temperatura/tiempo, así que se marcan a mano desde la hoja de datos.
+// endIndex es inclusivo; null/undefined = hasta la última fila.
 
 /**
  * Tasa de letalidad instantánea (adimensional) para una temperatura dada.
@@ -48,28 +52,32 @@ export function toMinutes(time, unit) {
 }
 
 /**
- * Integración por trapecios, arrancando en startIndex (las filas previas
- * quedan en 0 — no aportan letalidad).
+ * Integración por trapecios sobre la ventana [startIndex, endIndex]. Las
+ * filas fuera de la ventana no aportan letalidad: antes quedan en 0,
+ * después mantienen el acumulado final.
  *
  * @param {number[]} timeMinutes
  * @param {(number|null)[]} temps
  * @param {number} refTemp
  * @param {number} zValue
  * @param {number} startIndex
+ * @param {number|null} endIndex Inclusivo. null = hasta la última fila.
  */
 export function computeCumulativeLethalityTrapezoidal(
   timeMinutes,
   temps,
   refTemp,
   zValue,
-  startIndex = 0
+  startIndex = 0,
+  endIndex = null
 ) {
   const n = Math.min(timeMinutes.length, temps.length);
   const cumulative = new Array(n).fill(0);
   if (n === 0) return { cumulative, finalValue: 0 };
+  const last = endIndex == null ? n - 1 : Math.min(endIndex, n - 1);
 
   let acc = 0;
-  for (let i = Math.max(1, startIndex); i < n; i++) {
+  for (let i = Math.max(1, startIndex); i <= last; i++) {
     const dt = timeMinutes[i] - timeMinutes[i - 1];
     if (!(dt > 0) || temps[i] == null || temps[i - 1] == null) {
       cumulative[i] = acc;
@@ -80,6 +88,7 @@ export function computeCumulativeLethalityTrapezoidal(
     acc += ((l0 + l1) / 2) * dt;
     cumulative[i] = acc;
   }
+  for (let i = last + 1; i < n; i++) cumulative[i] = acc;
 
   return { cumulative, finalValue: acc };
 }
@@ -96,17 +105,20 @@ export function computeCumulativeLethalityTrapezoidal(
  * @param {number} refTemp
  * @param {number} zValue
  * @param {number} startIndex
+ * @param {number|null} endIndex Inclusivo. null = hasta la última fila.
  */
 export function computeCumulativeLethalitySum(
   timeMinutes,
   temps,
   refTemp,
   zValue,
-  startIndex = 0
+  startIndex = 0,
+  endIndex = null
 ) {
   const n = Math.min(timeMinutes.length, temps.length);
   const cumulative = new Array(n).fill(0);
   if (n === 0 || startIndex >= n) return { cumulative, finalValue: 0 };
+  const last = endIndex == null ? n - 1 : Math.min(endIndex, n - 1);
 
   // Δt del primer paso: contra la fila anterior si existe, si no, contra la
   // siguiente (o 1 minuto si es la única fila).
@@ -116,7 +128,7 @@ export function computeCumulativeLethalitySum(
       : (timeMinutes[startIndex + 1] ?? timeMinutes[startIndex] + 1) - timeMinutes[startIndex];
 
   let acc = 0;
-  for (let i = startIndex; i < n; i++) {
+  for (let i = startIndex; i <= last; i++) {
     const dt = i === startIndex ? firstDt : timeMinutes[i] - timeMinutes[i - 1];
     if (!(dt > 0) || temps[i] == null) {
       cumulative[i] = acc;
@@ -125,6 +137,7 @@ export function computeCumulativeLethalitySum(
     acc += lethalRate(temps[i], refTemp, zValue) * dt;
     cumulative[i] = acc;
   }
+  for (let i = last + 1; i < n; i++) cumulative[i] = acc;
 
   return { cumulative, finalValue: acc };
 }
@@ -135,39 +148,44 @@ export function computeCumulativeLethalitySum(
  *
  * @param {number[]} time
  * @param {(number|null)[]} correctedTemps
- * @param {{ refTempF0: number, zValueF0: number, refTempFh: number, zValueFh: number, timeUnit: 'min'|'s', startIndex?: number }} params
+ * @param {{ refTempF0: number, zValueF0: number, refTempFh: number, zValueFh: number, timeUnit: 'min'|'s', startIndex?: number, endIndex?: number|null }} params
  */
 export function computeF0Fh(time, correctedTemps, params) {
   const timeMinutes = toMinutes(time, params.timeUnit);
   const startIndex = params.startIndex ?? 0;
+  const endIndex = params.endIndex ?? null;
 
   const f0Trap = computeCumulativeLethalityTrapezoidal(
     timeMinutes,
     correctedTemps,
     params.refTempF0,
     params.zValueF0,
-    startIndex
+    startIndex,
+    endIndex
   );
   const f0Sum = computeCumulativeLethalitySum(
     timeMinutes,
     correctedTemps,
     params.refTempF0,
     params.zValueF0,
-    startIndex
+    startIndex,
+    endIndex
   );
   const fhTrap = computeCumulativeLethalityTrapezoidal(
     timeMinutes,
     correctedTemps,
     params.refTempFh,
     params.zValueFh,
-    startIndex
+    startIndex,
+    endIndex
   );
   const fhSum = computeCumulativeLethalitySum(
     timeMinutes,
     correctedTemps,
     params.refTempFh,
     params.zValueFh,
-    startIndex
+    startIndex,
+    endIndex
   );
 
   return {
@@ -189,7 +207,7 @@ export function computeF0Fh(time, correctedTemps, params) {
  *
  * @param {{ time: number[], series: Record<string, (number|null)[]> }} rawData
  * @param {{ id: string, calibration_points: {tcv:number,equi:number}[] }[]} probes
- * @param {{ refTempF0: number, zValueF0: number, refTempFh: number, zValueFh: number, timeUnit: 'min'|'s', startIndex?: number }} params
+ * @param {{ refTempF0: number, zValueF0: number, refTempFh: number, zValueFh: number, timeUnit: 'min'|'s', startIndex?: number, endIndex?: number|null }} params
  */
 export function computeRunResults(rawData, probes, params) {
   const corrected = applyCalibrationToDataset(rawData, probes);

@@ -80,10 +80,14 @@ create index if not exists idx_probes_project_id on probes(project_id);
 -- (ver nota debajo de la tabla) — raw_data.series usa los ids de probes
 -- como claves.
 --
--- start_index: índice de fila (0-based) desde donde arranca el conteo de
--- F0/FH. En las planillas reales esto se elige a mano mirando el gráfico
--- (no hay una regla fija de temperatura/tiempo) — acá se marca desde la
--- hoja de datos. Filas antes de start_index no aportan letalidad.
+-- start_index / end_index: la VENTANA de conteo de F0/FH (0-based,
+-- end_index inclusivo; null = hasta la última fila). En las planillas
+-- reales el conteo no cubre todo el registro: arranca donde empieza la
+-- meseta de exposición y corta antes del enfriamiento. Ninguno de los dos
+-- límites sigue una regla fija de temperatura/tiempo — se eligen mirando el
+-- gráfico, así que acá se marcan a mano desde la hoja de datos. Verificado
+-- contra una corrida real: integrar hasta el final del registro
+-- sobreestima el F0 un 4,6%.
 --
 -- raw_data: {"time": number[], "series": {probeId: (number|null)[]}} —
 -- única fuente de verdad de las temperaturas crudas de la corrida.
@@ -112,6 +116,7 @@ create table if not exists runs (
   time_unit text not null default 'min' check (time_unit in ('s', 'min')),
 
   start_index integer not null default 0,
+  end_index integer,
   raw_data jsonb not null default '{"time": [], "series": {}}'::jsonb,
   results_summary jsonb not null default '{}'::jsonb,
 
@@ -121,8 +126,15 @@ create table if not exists runs (
 
 create index if not exists idx_runs_project_id on runs(project_id);
 
+-- Idempotente para bases que ya tenían la tabla runs sin esta columna.
+-- Va ANTES de los comments: si la tabla ya existía, el "create table if not
+-- exists" de arriba no la agrega y comentar una columna inexistente falla.
+alter table runs add column if not exists end_index integer;
+
 comment on column runs.start_index is
   'Fila (0-based) desde donde arranca el conteo de F0/FH. Se marca a mano en la hoja de datos.';
+comment on column runs.end_index is
+  'Última fila (0-based, inclusiva) del conteo de F0/FH; null = hasta el final. Se marca a mano.';
 comment on column runs.raw_data is
   'Data cruda de la corrida: {time:number[], series:{probeId:number[]}}. Única fuente de verdad.';
 

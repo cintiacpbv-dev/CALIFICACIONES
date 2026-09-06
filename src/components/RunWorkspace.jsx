@@ -32,6 +32,7 @@ export default function RunWorkspace({ runId }) {
   const [rawData, setRawData] = useState({ time: [], series: {} });
   const [settings, setSettings] = useState(null);
   const [startIndex, setStartIndex] = useState(0);
+  const [endIndex, setEndIndex] = useState(null);
   const [name, setName] = useState('');
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function RunWorkspace({ runId }) {
         time_unit: run.time_unit,
       });
       setStartIndex(run.start_index ?? 0);
+      setEndIndex(run.end_index ?? null);
       setName(run.name);
       // Todas las corridas de un proyecto usan las mismas termocuplas —
       // ver nota en supabase/schema.sql.
@@ -73,8 +75,9 @@ export default function RunWorkspace({ runId }) {
       zValueFh: settings.z_value_fh,
       timeUnit: settings.time_unit,
       startIndex,
+      endIndex,
     });
-  }, [rawData, probes, settings, startIndex]);
+  }, [rawData, probes, settings, startIndex, endIndex]);
 
   const correctedSeries = useMemo(() => {
     const out = {};
@@ -83,20 +86,22 @@ export default function RunWorkspace({ runId }) {
   }, [results]);
 
   const startTime = rawData.time?.[startIndex] ?? null;
+  const endTime = endIndex == null ? null : (rawData.time?.[endIndex] ?? null);
 
   // --- Autoguardado -------------------------------------------------------
   const snapshot = useMemo(
-    () => ({ rawData, probes, settings, startIndex, name }),
-    [rawData, probes, settings, startIndex, name]
+    () => ({ rawData, probes, settings, startIndex, endIndex, name }),
+    [rawData, probes, settings, startIndex, endIndex, name]
   );
 
   const saveSnapshot = useCallback(
-    async ({ rawData, probes, settings, startIndex, name }) => {
+    async ({ rawData, probes, settings, startIndex, endIndex, name }) => {
       if (!settings) return;
       await saveRunFields(runId, {
         name,
         raw_data: rawData,
         start_index: startIndex,
+        end_index: endIndex,
         results_summary: summarizeResults(
           computeRunResults(rawData, probes, {
             refTempF0: settings.ref_temp_f0,
@@ -105,6 +110,7 @@ export default function RunWorkspace({ runId }) {
             zValueFh: settings.z_value_fh,
             timeUnit: settings.time_unit,
             startIndex,
+            endIndex,
           })
         ),
         ref_temp_f0: settings.ref_temp_f0,
@@ -163,8 +169,10 @@ export default function RunWorkspace({ runId }) {
               series={rawData.series}
               sensors={sensors}
               startIndex={startIndex}
+              endIndex={endIndex}
               onChange={setRawData}
               onSetStartIndex={setStartIndex}
+              onSetEndIndex={setEndIndex}
             />
           )}
 
@@ -180,6 +188,7 @@ export default function RunWorkspace({ runId }) {
             sensors={sensors}
             timeUnit={settings.time_unit}
             startTime={startIndex > 0 ? startTime : null}
+            endTime={endTime}
           />
 
           <LethalityChart
@@ -188,6 +197,7 @@ export default function RunWorkspace({ runId }) {
             sensors={sensors}
             timeUnit={settings.time_unit}
             startTime={startIndex > 0 ? startTime : null}
+            endTime={endTime}
           />
         </div>
       </div>

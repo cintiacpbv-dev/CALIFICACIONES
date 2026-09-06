@@ -121,12 +121,27 @@ paralelo:
   Se ofrece para poder conciliar contra corridas históricas ya validadas
   con ese método.
 
-Ambos respetan el mismo **punto de inicio marcado a mano** en la hoja de
-datos (`runs.start_index`): en las planillas reales, el conteo de F0/FH no
-arranca en t=0 sino en la fila donde empieza la "meseta" de exposición, y
-esa fila se elige mirando el gráfico — no sigue una regla fija de
-temperatura o tiempo (se comprobó contra 5 corridas reales: el desfase
-respecto a "cuando la temperatura llega a Tref−1°C" no es consistente).
+Ambos cuentan sólo dentro de la **ventana marcada a mano** en la hoja de
+datos (`runs.start_index` / `runs.end_index`): en las planillas reales el
+conteo de F0/FH no cubre todo el registro — arranca donde empieza la
+"meseta" de exposición y **corta antes del enfriamiento**. Ninguno de los
+dos límites sigue una regla fija de temperatura o tiempo: se eligen mirando
+el gráfico (se comprobó contra 5 corridas reales que el desfase respecto a
+"cuando la temperatura llega a Tref−1°C" no es consistente).
+
+Que la ventana tenga fin no es un detalle: en una corrida real, integrar
+hasta el final del registro en vez de cortar al terminar la meseta
+**sobreestima el F0 un 4,6%**.
+
+### Verificación contra una corrida real
+
+El motor se validó reproduciendo una corrida completa del autoclave
+(canal C03, 61 lecturas): con la calibración de 3 puntos, la ventana
+marcada y el método de suma, los 26 valores del acumulado coinciden con la
+planilla **a 0.000e+0 de diferencia**. La única salvedad es que la planilla
+asume Δt = 1 minuto exacto mientras la app usa el Δt real de los
+timestamps, que traen ±5 ms de jitter — eso mueve el resultado 3,4e-6 en
+términos relativos.
 
 ## Estructura
 

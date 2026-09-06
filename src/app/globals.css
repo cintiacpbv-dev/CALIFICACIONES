@@ -605,7 +605,7 @@ textarea:focus {
 .sheet-time-cell {
   display: flex;
   flex-direction: column;
-  min-inline-size: 108px;
+  min-inline-size: 132px;
 }
 .sheet-time-cell input {
   min-inline-size: 0;
@@ -1072,12 +1072,27 @@ textarea:focus {
 /* ============================================================================
    Marca de inicio de conteo en la hoja de datos
    ========================================================================= */
-.sheet-table tr.before-start td {
+/* Filas fuera de la ventana de conteo F0/FH */
+.sheet-table tr.outside-window td {
   opacity: 0.4;
 }
 
 .sheet-table tr.is-start td {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.sheet-table tr.is-end td {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* Una sola fila puede ser inicio y fin a la vez */
+.sheet-table tr.is-start.is-end td {
   box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
+}
+
+.marker-row {
+  display: flex;
+  gap: 2px;
 }
 
 .start-marker-btn {

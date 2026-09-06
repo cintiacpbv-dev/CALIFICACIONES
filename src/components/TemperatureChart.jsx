@@ -27,9 +27,10 @@ const LINE = '#dde3e0';
  *   sensors: {id:string, name:string, color:string}[],
  *   timeUnit: 'min'|'s',
  *   startTime?: number,
+ *   endTime?: number,
  * }} props
  */
-export default function TemperatureChart({ time, correctedSeries, sensors, timeUnit, startTime }) {
+export default function TemperatureChart({ time, correctedSeries, sensors, timeUnit, startTime, endTime }) {
   const data = time.map((t, i) => {
     const point = { time: t };
     for (const s of sensors) point[s.id] = correctedSeries[s.id]?.[i] ?? null;
@@ -86,7 +87,15 @@ export default function TemperatureChart({ time, correctedSeries, sensors, timeU
                   x={startTime}
                   stroke="#eb6834"
                   strokeDasharray="4 3"
-                  label={{ value: 'Inicio F0/FH', position: 'insideTopLeft', fill: '#eb6834', fontSize: 11 }}
+                  label={{ value: 'inicio F0/FH', position: 'insideTopLeft', fill: '#eb6834', fontSize: 11 }}
+                />
+              )}
+              {endTime != null && (
+                <ReferenceLine
+                  x={endTime}
+                  stroke="#eb6834"
+                  strokeDasharray="4 3"
+                  label={{ value: 'fin F0/FH', position: 'insideTopRight', fill: '#eb6834', fontSize: 11 }}
                 />
               )}
               {sensors.map((s) => (

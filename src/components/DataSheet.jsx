@@ -16,21 +16,33 @@ import { parseDataFile, parsePastedText } from '@/lib/dataImport';
  *    camino robusto para cargar un lote completo, sin depender de eventos
  *    de portapapeles celda por celda (frágiles entre navegadores).
  *
- * La fila de inicio de conteo (startIndex) se marca a mano acá: en las
+ * La ventana de conteo (startIndex..endIndex) se marca a mano acá: en las
  * planillas de validación reales que se tomaron de referencia, F0/FH no
- * arrancan en t=0 sino en la fila donde arranca la "meseta" de exposición,
- * y esa fila se elige mirando el gráfico — no sigue una regla fija.
+ * cubren todo el registro — arrancan donde empieza la "meseta" de
+ * exposición y cortan antes del enfriamiento. Ambos límites se eligen
+ * mirando el gráfico, no siguen una regla fija.
  *
  * @param {{
  *   time: number[],
  *   series: Record<string, (number|null)[]>,
  *   sensors: {id: string, name: string, color: string}[],
  *   startIndex: number,
+ *   endIndex: number|null,
  *   onChange: (next: {time: number[], series: Record<string, (number|null)[]>}) => void,
  *   onSetStartIndex: (index: number) => void,
+ *   onSetEndIndex: (index: number|null) => void,
  * }} props
  */
-export default function DataSheet({ time, series, sensors, startIndex, onChange, onSetStartIndex }) {
+export default function DataSheet({
+  time,
+  series,
+  sensors,
+  startIndex,
+  endIndex,
+  onChange,
+  onSetStartIndex,
+  onSetEndIndex,
+}) {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
 
@@ -74,6 +86,7 @@ export default function DataSheet({ time, series, sensors, startIndex, onChange,
     });
     onChange({ time: dataset.time, series: nextSeries });
     onSetStartIndex(0);
+    onSetEndIndex(null);
   }
 
   async function handleFileUpload(e) {
@@ -97,6 +110,15 @@ export default function DataSheet({ time, series, sensors, startIndex, onChange,
 
   const hasSensors = sensors.length > 0;
   const hasRows = time.length > 0;
+  // endIndex null = hasta la última fila
+  const effectiveEnd = endIndex ?? time.length - 1;
+
+  function rowClass(rowIdx) {
+    if (rowIdx === startIndex) return 'is-start';
+    if (rowIdx === effectiveEnd) return 'is-end';
+    if (rowIdx < startIndex || rowIdx > effectiveEnd) return 'outside-window';
+    return '';
+  }
 
   return (
     <section className="card">
@@ -156,12 +178,7 @@ export default function DataSheet({ time, series, sensors, startIndex, onChange,
                 </thead>
                 <tbody>
                   {time.map((t, rowIdx) => (
-                    <tr
-                      key={rowIdx}
-                      className={
-                        rowIdx === startIndex ? 'is-start' : rowIdx < startIndex ? 'before-start' : ''
-                      }
-                    >
+                    <tr key={rowIdx} className={rowClass(rowIdx)}>
                       <td>
                         <div className="sheet-time-cell">
                           <input
@@ -170,14 +187,24 @@ export default function DataSheet({ time, series, sensors, startIndex, onChange,
                             value={t ?? ''}
                             onChange={(e) => setCell(rowIdx, 'time', e.target.value)}
                           />
-                          <button
-                            type="button"
-                            className={`start-marker-btn${rowIdx === startIndex ? ' is-active' : ''}`}
-                            onClick={() => onSetStartIndex(rowIdx)}
-                            title="Marcar como inicio del conteo F0/FH"
-                          >
-                            {rowIdx === startIndex ? '● Inicio F0/FH' : 'Marcar inicio'}
-                          </button>
+                          <div className="marker-row">
+                            <button
+                              type="button"
+                              className={`start-marker-btn${rowIdx === startIndex ? ' is-active' : ''}`}
+                              onClick={() => onSetStartIndex(rowIdx)}
+                              title="Marcar como inicio del conteo F0/FH"
+                            >
+                              {rowIdx === startIndex ? '● inicio' : 'inicio'}
+                            </button>
+                            <button
+                              type="button"
+                              className={`start-marker-btn${rowIdx === effectiveEnd ? ' is-active' : ''}`}
+                              onClick={() => onSetEndIndex(rowIdx === endIndex ? null : rowIdx)}
+                              title="Marcar como fin del conteo F0/FH (volver a tocarlo lo quita)"
+                            >
+                              {rowIdx === effectiveEnd ? '● fin' : 'fin'}
+                            </button>
+                          </div>
                         </div>
                       </td>
                       {sensors.map((s) => (
@@ -197,8 +224,9 @@ export default function DataSheet({ time, series, sensors, startIndex, onChange,
               </table>
             </div>
             <p className="method-note">
-              Las filas antes de <strong>● Inicio F0/FH</strong> quedan atenuadas: no aportan
-              letalidad. Por defecto arranca en la fila 0.
+              El F0/FH se cuenta sólo dentro de la ventana <strong>● inicio → ● fin</strong>; las
+              filas de afuera quedan atenuadas y no aportan letalidad. Por defecto va de la primera
+              a la última fila. Tocá <strong>fin</strong> otra vez para volver a "hasta el final".
             </p>
           </>
         )}
@@ -214,7 +242,7 @@ export default function DataSheet({ time, series, sensors, startIndex, onChange,
               <p>
                 Pegá el bloque copiado de Excel: primera columna <strong>Tiempo</strong>, después una
                 columna por sensor en el mismo orden que la hoja. Reemplaza los datos actuales y
-                reinicia la marca de inicio a la fila 0.
+                reinicia la ventana de conteo a la hoja completa.
               </p>
               <textarea
                 rows={10}
