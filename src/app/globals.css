@@ -1125,6 +1125,12 @@ textarea:focus {
   background: var(--n-25);
 }
 
+.method-note.is-warning {
+  color: var(--warn);
+  background: var(--warn-tint);
+  border-top-color: rgba(164, 92, 10, 0.2);
+}
+
 .results-table-scroll {
   overflow-x: auto;
 }

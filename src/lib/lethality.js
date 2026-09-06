@@ -74,10 +74,15 @@ export function computeCumulativeLethalityTrapezoidal(
   const n = Math.min(timeMinutes.length, temps.length);
   const cumulative = new Array(n).fill(0);
   if (n === 0) return { cumulative, finalValue: 0 };
+  const first = Math.max(0, startIndex);
   const last = endIndex == null ? n - 1 : Math.min(endIndex, n - 1);
 
+  // Se arranca en first+1: el primer intervalo que cae DENTRO de la ventana
+  // es (first -> first+1). Empezar en `first` sumaría el intervalo anterior
+  // a la fila marcada como inicio, que es justamente lo que se quiere
+  // excluir (en la rampa de subida eso mete media letalidad de más).
   let acc = 0;
-  for (let i = Math.max(1, startIndex); i <= last; i++) {
+  for (let i = Math.max(1, first + 1); i <= last; i++) {
     const dt = timeMinutes[i] - timeMinutes[i - 1];
     if (!(dt > 0) || temps[i] == null || temps[i - 1] == null) {
       cumulative[i] = acc;
@@ -117,19 +122,20 @@ export function computeCumulativeLethalitySum(
 ) {
   const n = Math.min(timeMinutes.length, temps.length);
   const cumulative = new Array(n).fill(0);
-  if (n === 0 || startIndex >= n) return { cumulative, finalValue: 0 };
+  const first = Math.max(0, startIndex);
+  if (n === 0 || first >= n) return { cumulative, finalValue: 0 };
   const last = endIndex == null ? n - 1 : Math.min(endIndex, n - 1);
 
   // Δt del primer paso: contra la fila anterior si existe, si no, contra la
   // siguiente (o 1 minuto si es la única fila).
   const firstDt =
-    startIndex > 0
-      ? timeMinutes[startIndex] - timeMinutes[startIndex - 1]
-      : (timeMinutes[startIndex + 1] ?? timeMinutes[startIndex] + 1) - timeMinutes[startIndex];
+    first > 0
+      ? timeMinutes[first] - timeMinutes[first - 1]
+      : (timeMinutes[first + 1] ?? timeMinutes[first] + 1) - timeMinutes[first];
 
   let acc = 0;
-  for (let i = startIndex; i <= last; i++) {
-    const dt = i === startIndex ? firstDt : timeMinutes[i] - timeMinutes[i - 1];
+  for (let i = first; i <= last; i++) {
+    const dt = i === first ? firstDt : timeMinutes[i] - timeMinutes[i - 1];
     if (!(dt > 0) || temps[i] == null) {
       cumulative[i] = acc;
       continue;

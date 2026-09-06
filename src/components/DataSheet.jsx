@@ -74,6 +74,12 @@ export default function DataSheet({
     const nextSeries = {};
     for (const s of sensors) nextSeries[s.id] = (series[s.id] ?? []).slice(0, -1);
     onChange({ time: nextTime, series: nextSeries });
+
+    // Si los marcadores quedaban en la fila que se fue, corregirlos: un
+    // índice fuera de rango deja el F0 en cero sin explicar por qué.
+    const lastRow = nextTime.length - 1;
+    if (startIndex > lastRow) onSetStartIndex(Math.max(0, lastRow));
+    if (endIndex != null && endIndex > lastRow) onSetEndIndex(null);
   }
 
   function applyImportedDataset(dataset) {
@@ -112,6 +118,7 @@ export default function DataSheet({
   const hasRows = time.length > 0;
   // endIndex null = hasta la última fila
   const effectiveEnd = endIndex ?? time.length - 1;
+  const windowInverted = hasRows && effectiveEnd < startIndex;
 
   function rowClass(rowIdx) {
     if (rowIdx === startIndex) return 'is-start';
@@ -223,11 +230,19 @@ export default function DataSheet({
                 </tbody>
               </table>
             </div>
-            <p className="method-note">
-              El F0/FH se cuenta sólo dentro de la ventana <strong>● inicio → ● fin</strong>; las
-              filas de afuera quedan atenuadas y no aportan letalidad. Por defecto va de la primera
-              a la última fila. Tocá <strong>fin</strong> otra vez para volver a "hasta el final".
-            </p>
+            {windowInverted ? (
+              <p className="method-note is-warning">
+                <strong>La ventana está invertida:</strong> el <strong>fin</strong> quedó antes que
+                el <strong>inicio</strong>, así que no se cuenta letalidad y el F0/FH da 0. Movelos
+                para que el fin quede en una fila posterior al inicio.
+              </p>
+            ) : (
+              <p className="method-note">
+                El F0/FH se cuenta sólo dentro de la ventana <strong>● inicio → ● fin</strong>; las
+                filas de afuera quedan atenuadas y no aportan letalidad. Por defecto va de la primera
+                a la última fila. Tocá <strong>fin</strong> otra vez para volver a "hasta el final".
+              </p>
+            )}
           </>
         )}
       </div>
