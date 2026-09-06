@@ -32,6 +32,11 @@ create table if not exists projects (
   updated_at timestamptz not null default now()
 );
 
+-- Si la tabla projects ya existía del esquema v1, el "if not exists" de
+-- arriba la deja intacta y esta columna nueva no se crearía. Este alter la
+-- agrega en ese caso, y es inofensivo en una instalación nueva.
+alter table projects add column if not exists equipment_code text;
+
 -- ----------------------------------------------------------------------------
 -- probes: termocuplas físicas del equipo. La calibración vive acá porque es
 -- del sensor, no de la corrida: el mismo certificado (2 o 3 puntos TCV↔EQUI
