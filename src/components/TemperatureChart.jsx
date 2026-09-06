@@ -5,6 +5,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -25,9 +26,10 @@ const LINE = '#dde3e0';
  *   correctedSeries: Record<string, (number|null)[]>,
  *   sensors: {id:string, name:string, color:string}[],
  *   timeUnit: 'min'|'s',
+ *   startTime?: number,
  * }} props
  */
-export default function TemperatureChart({ time, correctedSeries, sensors, timeUnit }) {
+export default function TemperatureChart({ time, correctedSeries, sensors, timeUnit, startTime }) {
   const data = time.map((t, i) => {
     const point = { time: t };
     for (const s of sensors) point[s.id] = correctedSeries[s.id]?.[i] ?? null;
@@ -38,7 +40,7 @@ export default function TemperatureChart({ time, correctedSeries, sensors, timeU
     <section className="card">
       <div className="card-head">
         <h2 className="card-title">Temperatura corregida</h2>
-        <span className="card-hint">Data cruda + offset de cada sensor</span>
+        <span className="card-hint">Data cruda corregida por calibración de cada sensor</span>
       </div>
 
       <div className="card-body chart-body">
@@ -79,6 +81,14 @@ export default function TemperatureChart({ time, correctedSeries, sensors, timeU
                 iconSize={14}
                 wrapperStyle={{ fontSize: 12, paddingBottom: 12 }}
               />
+              {startTime != null && (
+                <ReferenceLine
+                  x={startTime}
+                  stroke="#eb6834"
+                  strokeDasharray="4 3"
+                  label={{ value: 'Inicio F0/FH', position: 'insideTopLeft', fill: '#eb6834', fontSize: 11 }}
+                />
+              )}
               {sensors.map((s) => (
                 <Line
                   key={s.id}

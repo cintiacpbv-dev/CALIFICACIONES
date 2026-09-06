@@ -6,11 +6,11 @@
  * es siempre configurable (no tiene un valor "estándar" universal).
  *
  * @param {{
- *   project: { ref_temp_f0:number, z_value_f0:number, ref_temp_fh:number, z_value_fh:number, time_unit:'min'|'s' },
+ *   run: { ref_temp_f0:number, z_value_f0:number, ref_temp_fh:number, z_value_fh:number, time_unit:'min'|'s' },
  *   onChange: (fields: object) => void,
  * }} props
  */
-export default function SettingsPanel({ project, onChange }) {
+export default function SettingsPanel({ run, onChange }) {
   return (
     <section className="card">
       <div className="card-head">
@@ -29,7 +29,7 @@ export default function SettingsPanel({ project, onChange }) {
                   type="number"
                   step="0.1"
                   className="num"
-                  value={project.ref_temp_f0}
+                  value={run.ref_temp_f0}
                   onChange={(e) => onChange({ ref_temp_f0: Number(e.target.value) })}
                 />
               </label>
@@ -39,7 +39,7 @@ export default function SettingsPanel({ project, onChange }) {
                   type="number"
                   step="0.1"
                   className="num"
-                  value={project.z_value_f0}
+                  value={run.z_value_f0}
                   onChange={(e) => onChange({ z_value_f0: Number(e.target.value) })}
                 />
               </label>
@@ -55,7 +55,7 @@ export default function SettingsPanel({ project, onChange }) {
                   type="number"
                   step="0.1"
                   className="num"
-                  value={project.ref_temp_fh}
+                  value={run.ref_temp_fh}
                   onChange={(e) => onChange({ ref_temp_fh: Number(e.target.value) })}
                 />
               </label>
@@ -65,7 +65,7 @@ export default function SettingsPanel({ project, onChange }) {
                   type="number"
                   step="0.1"
                   className="num"
-                  value={project.z_value_fh}
+                  value={run.z_value_fh}
                   onChange={(e) => onChange({ z_value_fh: Number(e.target.value) })}
                 />
               </label>
@@ -78,7 +78,7 @@ export default function SettingsPanel({ project, onChange }) {
               <label className="field">
                 <span className="field-label">Unidad de la columna Tiempo</span>
                 <select
-                  value={project.time_unit}
+                  value={run.time_unit}
                   onChange={(e) => onChange({ time_unit: e.target.value })}
                 >
                   <option value="min">Minutos</option>

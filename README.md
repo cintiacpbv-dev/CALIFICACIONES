@@ -1,18 +1,23 @@
 # Letalidad Térmica — F0 / FH
 
-Aplicación web de análisis de penetración de calor: hoja de datos
-interactiva (tipo Minitab) para cargar temperatura de varios sensores en el
-tiempo, corregir la data cruda con los offsets de calibración de cada
-termocupla, y calcular/graficar F0 y FH automáticamente.
+Aplicación web de análisis de penetración de calor. Un **proyecto** es un
+equipo en calificación (autoclave, horno); cada equipo tiene sus
+**termocuplas** con su certificado de calibración, y sus **corridas**
+(cámara vacía, cargada, distintos setpoints…), cada una con su propia hoja
+de datos tipo Minitab, sus parámetros de referencia y su cálculo de F0/FH.
 
 Sin autenticación, sin audit trail, sin 21 CFR Parte 11 / ALCOA+: acceso
 libre y cálculo matemático puro, por requisito explícito del proyecto.
+
+El motor de cálculo se diseñó analizando planillas de validación reales
+(autoclave 115/121°C y horno de despirogenado a 250°C/z=54) — de ahí salen
+tres decisiones que no son obvias mirando solo la fórmula de F0:
 
 ## Stack
 
 - **Next.js (App Router) + React** — desplegado en **Vercel**.
 - **Supabase** (Postgres + Storage) como backend: autoguardado continuo de
-  proyectos, sensores/offsets y certificados de calibración.
+  proyectos, termocuplas/calibración, corridas y certificados.
 - **Recharts** para los gráficos, tabla editable propia para la hoja de
   cálculo, **papaparse**/**xlsx** para importar CSV/Excel.
 
@@ -30,110 +35,132 @@ Abre http://localhost:3000
 
 1. Crear un proyecto en [supabase.com](https://supabase.com).
 2. En **SQL Editor**, ejecutar [`supabase/schema.sql`](./supabase/schema.sql)
-   completo. Crea las tablas `projects` y `sensors`, dejа las políticas RLS
-   abiertas (sin login, como pide el proyecto) y crea el bucket de Storage
-   `calibration-certs` para los PDFs de calibración.
+   completo. Crea las tablas `projects`, `probes` y `runs`, deja las
+   políticas RLS abiertas (sin login, como pide el proyecto) y crea el
+   bucket de Storage `calibration-certs`.
 3. Copiar `Project URL` y `Publishable key` (Settings → API → Project API
    keys) a `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
-La app depende solo de esas dos variables — la misma URL + clave pública que
-usa el resto de los proyectos de la organización con Supabase. Si conectás
-la integración de Supabase desde el Marketplace de Vercel, ésta agrega de
-más un montón de variables `POSTGRES_*` (URL directa, pooling, credenciales)
-pensadas para usar un ORM como Prisma: esta app no las usa ni las necesita,
-podés dejarlas ahí sin efecto.
+La app depende solo de esas dos variables. Si conectás la integración de
+Supabase desde el Marketplace de Vercel, ésta agrega de más un montón de
+variables `POSTGRES_*` pensadas para un ORM: esta app no las usa, podés
+dejarlas ahí sin efecto.
 
-Sin las dos variables que sí usa, la app igual carga, pero el panel de
-proyectos avisa que no hay guardado en la nube (no hay fallback a
-`localStorage`: el requisito es
-persistencia en Supabase).
+> Si ya tenías el esquema v1 (un proyecto = un dataset plano, sin corridas)
+> corriendo, `schema.sql` incluye al final un bloque de migración comentado
+> que lo lleva al esquema actual.
 
 ## Desplegar en Vercel
 
 Conectar el repositorio, cargar las mismas dos variables de entorno en
-*Project Settings → Environment Variables*, y desplegar. Cada push a la rama
-de producción se publica solo.
+*Project Settings → Environment Variables*, y desplegar.
 
 > Al ser una SPA sin servidor propio, las credenciales de Supabase quedan
 > dentro del JavaScript que descarga el navegador. Mientras las políticas
 > RLS estén abiertas (como pide este proyecto), cualquiera con el enlace
-> puede leer y escribir los datos. Para restringirlo hace falta agregar
-> autenticación y cerrar las políticas — explícitamente fuera de alcance
-> aquí.
+> puede leer y escribir los datos — restringirlo requiere autenticación,
+> explícitamente fuera de alcance acá.
 
 ## Arquitectura de datos
 
-Un **proyecto** guarda la grilla completa como un único JSONB
-(`projects.raw_data = {time: number[], series: {sensorId: number[]}}`) que
-se autoguarda entero con debounce, en vez de una fila por celda — encaja con
-el patrón "pegar una hoja completa" y evita cientos de escrituras por
-segundo mientras se edita.
+```
+projects (equipo)  →  probes (termocuplas + calibración)
+                   →  runs (corridas: hoja de datos + parámetros + resultados)
+```
 
-Los **sensores** (`sensors`) llevan su offset de corrección y sus datos de
-calibración (número de certificado, fecha, notas, PDF en Storage) 1:1 con el
-sensor.
-
-La **data corregida** y las **curvas de letalidad** nunca se persisten: son
-puramente derivadas de `raw_data + sensors.offset_celsius + parámetros de
-referencia`, y se recalculan en el cliente (`src/lib/lethality.js`) en cada
-render vía `useMemo`. Guardar un duplicado corregido en la base violaría la
-única fuente de verdad. Sólo se cachea `projects.results_summary` (F0/FH
-final por sensor) para poder listar el panel de proyectos sin recalcular
-todo.
+- **`probes`**: la calibración vive acá, no en la corrida — el mismo
+  certificado (2 o 3 puntos TCV↔EQUI) se reutiliza en todas las corridas del
+  equipo, igual que en las planillas de referencia.
+- **`runs`**: cada corrida tiene su propio `raw_data` (JSONB
+  `{time, series: {probeId: number[]}}`, autoguardado entero con debounce)
+  y sus propios `ref_temp_f0/z_value_f0/ref_temp_fh/z_value_fh` — el mismo
+  equipo puede correr a 115°C en una corrida y 121°C en otra.
+- La **data corregida** y las **curvas de letalidad** nunca se persisten:
+  son derivadas de `raw_data + probes.calibration_points + parámetros`, y se
+  recalculan en el cliente (`src/lib/lethality.js`, `src/lib/calibration.js`)
+  vía `useMemo`. Sólo se cachea `runs.results_summary` para listar sin
+  recalcular.
 
 Ver el esquema exacto, comentado, en [`supabase/schema.sql`](./supabase/schema.sql).
 
-## Cálculo de F0 / FH
+## Calibración: regresión de 2-3 puntos, no un offset
+
+Las planillas de referencia no suman un offset constante — arman una recta
+por cuadrados mínimos a partir de los puntos del certificado de calibración
+(`TCV` = lo que leyó el canal en el baño, `EQUI` = el valor real del baño) y
+evalúan esa recta en cada lectura cruda (replica `FORECAST.LINEAR` de
+Excel — la fórmula real está en `src/lib/calibration.js`, verificada
+numéricamente contra valores de esas planillas). Un offset fijo sólo es
+correcto si el error del sensor no cambia con la temperatura; en la
+práctica no es así.
+
+## Cálculo de F0 / FH: dos métodos de integración
 
 ```
 Tasa de letalidad:      L(t) = 10 ^ ((T(t) - Tref) / z)
-Valor F (integral):     F = ∫ L(t) dt      (trapecios, en minutos)
+Valor F (integral):     F = ∫ L(t) dt
 ```
 
-F0 usa por convención `Tref = 121.1 °C`, `z = 10 °C` (esterilización por
-vapor). FH es la misma fórmula con una `Tref`/`z` configurables por proyecto
-(otro producto o proceso puede requerir otra referencia) — no son dos
-matemáticas distintas, comparten `computeCumulativeLethality` en
-`src/lib/lethality.js`.
+F0 usa por convención `Tref = 121.1°C, z = 10°C`; FH no tiene un estándar
+universal (`Tref = 250°C, z = 54°C` es el default, tomado de una
+validación real de despirogenado por calor seco, pero es editable por
+corrida).
 
-La integración es por trapecios sobre pasos de tiempo no necesariamente
-uniformes (soporta datos importados con intervalos irregulares), y devuelve
-tanto el valor final como la serie acumulada punto a punto para el gráfico
-de letalidad.
+`src/lib/lethality.js` ofrece **los dos métodos**, calculados siempre en
+paralelo:
+
+- **Trapecio** (`computeCumulativeLethalityTrapezoidal`): el recomendado
+  por la bibliografía — numéricamente más preciso, tolera intervalos de
+  tiempo irregulares.
+- **Suma acumulada** (`computeCumulativeLethalitySum`): `F[i] = F[i-1] +
+  tasa[i]·Δt`, el método encontrado en las planillas de validación reales.
+  Se ofrece para poder conciliar contra corridas históricas ya validadas
+  con ese método.
+
+Ambos respetan el mismo **punto de inicio marcado a mano** en la hoja de
+datos (`runs.start_index`): en las planillas reales, el conteo de F0/FH no
+arranca en t=0 sino en la fila donde empieza la "meseta" de exposición, y
+esa fila se elige mirando el gráfico — no sigue una regla fija de
+temperatura o tiempo (se comprobó contra 5 corridas reales: el desfase
+respecto a "cuando la temperatura llega a Tref−1°C" no es consistente).
 
 ## Estructura
 
 ```
 src/
   app/
-    layout.js                Layout raíz
-    page.js                   Panel central: lista de proyectos guardados
-    proyecto/[id]/page.js    Workspace de un proyecto
+    layout.js                       Layout raíz
+    page.js                          Panel central: lista de proyectos
+    proyecto/[id]/page.js           Overview de un proyecto (equipo)
+    proyecto/[id]/corrida/[runId]/  Workspace de una corrida
     globals.css
   components/
-    ProjectPanel.jsx          Lista/crea/elimina proyectos
-    ProjectWorkspace.jsx      Orquesta un proyecto: estado, cálculo y autoguardado
-    DataSheet.jsx             Hoja de datos (grid + pegado + carga CSV/Excel)
-    OffsetsPanel.jsx          Offsets y certificados de calibración por sensor
-    SettingsPanel.jsx         Parámetros de referencia F0/FH y unidad de tiempo
-    ResultsSummary.jsx        Tabla final F0/FH por sensor
-    TemperatureChart.jsx      Gráfico 1: temperatura corregida vs. tiempo
-    LethalityChart.jsx        Gráfico 2: letalidad acumulada vs. tiempo
-    AutosaveBadge.jsx         Indicador de estado de autoguardado
+    ProjectPanel.jsx                 Lista/crea/elimina proyectos
+    ProjectWorkspace.jsx             Overview: datos del equipo, calibración, corridas
+    CalibrationPanel.jsx             Puntos de calibración por termocupla
+    RunWorkspace.jsx                 Orquesta una corrida: estado, cálculo, autoguardado
+    DataSheet.jsx                    Hoja de datos + marca de inicio de conteo
+    SettingsPanel.jsx                Parámetros F0/FH y unidad de tiempo (por corrida)
+    ResultsSummary.jsx               F0/FH por sensor, ambos métodos
+    TemperatureChart.jsx             Temperatura corregida vs. tiempo
+    LethalityChart.jsx               Letalidad acumulada (F0/FH × trapecio/suma)
+    ChartTooltip.jsx                 Tooltip compartido de los gráficos
+    AutosaveBadge.jsx                Indicador de autoguardado
   lib/
-    lethality.js              Motor de cálculo F0/FH + aplicación de offsets
-    dataImport.js              Parseo de CSV / Excel / texto pegado
-    projectsApi.js              CRUD de proyectos y sensores contra Supabase
-    supabaseClient.js           Cliente Supabase (o null sin credenciales)
-    useDebouncedAutosave.js     Hook de autoguardado con debounce
+    lethality.js                     Motor F0/FH: los dos métodos de integración
+    calibration.js                   Regresión de calibración (2-3 puntos)
+    dataImport.js                    Parseo de CSV / Excel / texto pegado
+    projectsApi.js                   CRUD de proyectos/probes/runs contra Supabase
+    supabaseClient.js                Cliente Supabase (o null sin credenciales)
+    useDebouncedAutosave.js          Hook de autoguardado con debounce
 supabase/
-  schema.sql                  Esquema completo, comentado, listo para pegar
+  schema.sql                        Esquema completo, comentado, con migración desde v1
 ```
 
 ## Próximos pasos posibles
 
 - Exportar la tabla de resultados / gráficos a Excel o PDF.
 - Edición de rango completo (pegado multi-celda) directamente sobre la
-  tabla, hoy resuelto vía el modal "Pegar datos" por ser más confiable entre
-  navegadores que el evento de portapapeles celda por celda.
-- Historial de calibraciones por sensor (hoy es 1 registro activo por sensor).
+  tabla, hoy resuelto vía el modal "Pegar datos".
+- Historial de calibraciones por sensor (hoy es 1 certificado activo por
+  termocupla).

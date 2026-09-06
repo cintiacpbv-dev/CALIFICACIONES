@@ -6,6 +6,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -18,21 +19,23 @@ const GRID = '#eaeeec';
 const LINE = '#dde3e0';
 
 /**
- * Curva de letalidad acumulada (F0 o FH) en el tiempo, por sensor. El
- * selector de métrica es estado de presentación puro, así que vive acá y no
- * en el workspace.
+ * Curva de letalidad acumulada (F0 o FH) en el tiempo, por sensor, con los
+ * dos métodos de integración disponibles (trapecio / suma acumulada). Los
+ * selectores son estado de presentación puro, así que viven acá y no en el
+ * workspace.
  *
  * @param {{
  *   time: number[],
- *   results: Record<string, {f0Cumulative:number[], fhCumulative:number[]}>,
+ *   results: Record<string, {f0TrapCumulative:number[], f0SumCumulative:number[], fhTrapCumulative:number[], fhSumCumulative:number[]}>,
  *   sensors: {id:string, name:string, color:string}[],
  *   timeUnit: 'min'|'s',
  * }} props
  */
-export default function LethalityChart({ time, results, sensors, timeUnit }) {
+export default function LethalityChart({ time, results, sensors, timeUnit, startTime }) {
   const [metric, setMetric] = useState('f0');
+  const [method, setMethod] = useState('trap');
 
-  const key = metric === 'fh' ? 'fhCumulative' : 'f0Cumulative';
+  const key = `${metric}${method === 'trap' ? 'Trap' : 'Sum'}Cumulative`;
   const label = metric === 'fh' ? 'FH' : 'F0';
 
   const data = time.map((t, i) => {
@@ -46,6 +49,14 @@ export default function LethalityChart({ time, results, sensors, timeUnit }) {
       <div className="card-head">
         <h2 className="card-title">Letalidad acumulada</h2>
         <div className="card-actions">
+          <div className="seg" role="group" aria-label="Método de integración">
+            <button aria-pressed={method === 'trap'} onClick={() => setMethod('trap')}>
+              Trapecio
+            </button>
+            <button aria-pressed={method === 'sum'} onClick={() => setMethod('sum')}>
+              Suma
+            </button>
+          </div>
           <div className="seg" role="group" aria-label="Métrica">
             <button aria-pressed={metric === 'f0'} onClick={() => setMetric('f0')}>
               F0
@@ -101,6 +112,14 @@ export default function LethalityChart({ time, results, sensors, timeUnit }) {
                 iconSize={14}
                 wrapperStyle={{ fontSize: 12, paddingBottom: 12 }}
               />
+              {startTime != null && (
+                <ReferenceLine
+                  x={startTime}
+                  stroke="#eb6834"
+                  strokeDasharray="4 3"
+                  label={{ value: 'Inicio F0/FH', position: 'insideTopLeft', fill: '#eb6834', fontSize: 11 }}
+                />
+              )}
               {sensors.map((s) => (
                 <Line
                   key={s.id}

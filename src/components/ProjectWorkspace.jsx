@@ -2,118 +2,84 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  createSensor,
-  deleteSensor,
-  getProject,
+  createProbe,
+  createRun,
+  deleteProbe,
+  deleteRun,
+  getProjectOverview,
+  saveProbeFields,
   saveProjectFields,
-  saveSensorFields,
 } from '@/lib/projectsApi';
-import { computeProjectResults, summarizeResults } from '@/lib/lethality';
 import { useDebouncedAutosave } from '@/lib/useDebouncedAutosave';
-import { nextSensorColor } from './OffsetsPanel';
-import DataSheet from './DataSheet';
-import OffsetsPanel from './OffsetsPanel';
-import SettingsPanel from './SettingsPanel';
-import TemperatureChart from './TemperatureChart';
-import LethalityChart from './LethalityChart';
-import ResultsSummary from './ResultsSummary';
+import CalibrationPanel, { nextProbeColor } from './CalibrationPanel';
 import AutosaveBadge from './AutosaveBadge';
 
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** F0 más bajo (trapecio) entre los sensores de una corrida. */
+function minF0(resultsSummary) {
+  const values = Object.values(resultsSummary ?? {})
+    .map((r) => r?.f0Trap)
+    .filter((v) => typeof v === 'number' && v > 0);
+  return values.length ? Math.min(...values) : null;
+}
+
 /**
- * Workspace de un proyecto: junta la hoja de datos, los offsets, los
- * parámetros F0/FH, los gráficos y el resumen, y orquesta el autoguardado.
- *
- * Flujo de datos (unidireccional): rawData + sensors + projectSettings son
- * la única fuente de verdad en memoria. `results` es 100% derivado
- * (useMemo) — nunca se edita directamente. El autoguardado persiste
- * rawData/settings/resultados-resumen en `projects` y los campos de cada
- * sensor en `sensors`, con un debounce compartido para no golpear Supabase
- * en cada tecla.
+ * Vista de un proyecto = un equipo en calificación: datos del equipo,
+ * termocuplas con su calibración (CalibrationPanel — se aplica a todas las
+ * corridas), y la lista de corridas del estudio (cámara vacía, cargada,
+ * distintos setpoints…).
  */
 export default function ProjectWorkspace({ projectId }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [rawData, setRawData] = useState({ time: [], series: {} });
-  const [sensors, setSensors] = useState([]);
-  const [settings, setSettings] = useState(null);
+  const [project, setProject] = useState(null);
+  const [probes, setProbes] = useState([]);
+  const [runs, setRuns] = useState([]);
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [equipmentCode, setEquipmentCode] = useState('');
+  const [creatingRun, setCreatingRun] = useState(false);
+
+  async function refresh() {
+    const { project, probes, runs } = await getProjectOverview(projectId);
+    setProject(project);
+    setProbes(probes);
+    setRuns(runs);
+    setName(project.name);
+    setDescription(project.description ?? '');
+    setEquipmentCode(project.equipment_code ?? '');
+    setLoading(false);
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    getProject(projectId).then(({ project, sensors }) => {
-      if (cancelled) return;
-      setRawData(project.raw_data ?? { time: [], series: {} });
-      setSettings({
-        ref_temp_f0: project.ref_temp_f0,
-        z_value_f0: project.z_value_f0,
-        ref_temp_fh: project.ref_temp_fh,
-        z_value_fh: project.z_value_fh,
-        time_unit: project.time_unit,
-      });
-      setName(project.name);
-      setSensors(sensors);
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  const results = useMemo(() => {
-    if (!settings) return {};
-    return computeProjectResults(rawData, sensors, {
-      refTempF0: settings.ref_temp_f0,
-      zValueF0: settings.z_value_f0,
-      refTempFh: settings.ref_temp_fh,
-      zValueFh: settings.z_value_fh,
-      timeUnit: settings.time_unit,
-    });
-  }, [rawData, sensors, settings]);
-
-  const correctedSeries = useMemo(() => {
-    const out = {};
-    for (const [sensorId, r] of Object.entries(results)) out[sensorId] = r.corrected;
-    return out;
-  }, [results]);
-
-  // --- Autoguardado -------------------------------------------------------
+  // --- Autoguardado de datos del proyecto + probes -------------------------
   const snapshot = useMemo(
-    () => ({ rawData, sensors, settings, name }),
-    [rawData, sensors, settings, name]
+    () => ({ name, description, equipmentCode, probes }),
+    [name, description, equipmentCode, probes]
   );
 
   const saveSnapshot = useCallback(
-    async ({ rawData, sensors, settings, name }) => {
-      if (!settings) return;
+    async ({ name, description, equipmentCode, probes }) => {
       await Promise.all([
-        saveProjectFields(projectId, {
-          name,
-          raw_data: rawData,
-          results_summary: summarizeResults(
-            computeProjectResults(rawData, sensors, {
-              refTempF0: settings.ref_temp_f0,
-              zValueF0: settings.z_value_f0,
-              refTempFh: settings.ref_temp_fh,
-              zValueFh: settings.z_value_fh,
-              timeUnit: settings.time_unit,
-            })
-          ),
-          ref_temp_f0: settings.ref_temp_f0,
-          z_value_f0: settings.z_value_f0,
-          ref_temp_fh: settings.ref_temp_fh,
-          z_value_fh: settings.z_value_fh,
-          time_unit: settings.time_unit,
-        }),
-        ...sensors.map((s) =>
-          saveSensorFields(s.id, {
-            name: s.name,
-            color: s.color,
-            sort_order: s.sort_order,
-            offset_celsius: s.offset_celsius,
-            calibration_cert_number: s.calibration_cert_number,
-            calibration_date: s.calibration_date || null,
-            calibration_notes: s.calibration_notes,
-            certificate_file_url: s.certificate_file_url,
+        saveProjectFields(projectId, { name, description, equipment_code: equipmentCode }),
+        ...probes.map((p) =>
+          saveProbeFields(p.id, {
+            code: p.code,
+            color: p.color,
+            sort_order: p.sort_order,
+            calibration_points: p.calibration_points,
+            calibration_cert_number: p.calibration_cert_number,
+            calibration_date: p.calibration_date || null,
+            certificate_file_url: p.certificate_file_url,
           })
         ),
       ]);
@@ -123,36 +89,43 @@ export default function ProjectWorkspace({ projectId }) {
 
   const autosaveStatus = useDebouncedAutosave(snapshot, saveSnapshot);
 
-  // --- Acciones sobre sensores (crear/borrar son inmediatas, no debounce) --
-  async function handleAddSensor() {
-    const sensor = await createSensor(projectId, {
-      name: `Sensor ${sensors.length + 1}`,
-      color: nextSensorColor(sensors.length),
-      sortOrder: sensors.length,
+  async function handleAddProbe() {
+    const probe = await createProbe(projectId, {
+      code: `C${String(probes.length + 1).padStart(2, '0')}`,
+      color: nextProbeColor(probes.length),
+      sortOrder: probes.length,
     });
-    setSensors((prev) => [...prev, sensor]);
-    setRawData((prev) => ({
-      ...prev,
-      series: { ...prev.series, [sensor.id]: prev.time.map(() => null) },
-    }));
+    setProbes((prev) => [...prev, probe]);
   }
 
-  async function handleRemoveSensor(id) {
-    if (!confirm('Eliminar este sensor y sus datos?')) return;
-    await deleteSensor(id);
-    setSensors((prev) => prev.filter((s) => s.id !== id));
-    setRawData((prev) => {
-      const series = { ...prev.series };
-      delete series[id];
-      return { ...prev, series };
-    });
+  async function handleRemoveProbe(id) {
+    if (!confirm('Eliminar esta termocupla? Sus lecturas en las corridas quedan huérfanas.')) return;
+    await deleteProbe(id);
+    setProbes((prev) => prev.filter((p) => p.id !== id));
   }
 
-  function handleUpdateSensor(id, fields) {
-    setSensors((prev) => prev.map((s) => (s.id === id ? { ...s, ...fields } : s)));
+  function handleUpdateProbe(id, fields) {
+    setProbes((prev) => prev.map((p) => (p.id === id ? { ...p, ...fields } : p)));
   }
 
-  if (loading || !settings) {
+  async function handleCreateRun() {
+    setCreatingRun(true);
+    try {
+      const run = await createRun(projectId, { name: `Corrida ${runs.length + 1}`, sortOrder: runs.length });
+      router.push(`/proyecto/${projectId}/corrida/${run.id}`);
+    } catch (err) {
+      alert('No se pudo crear la corrida: ' + err.message);
+      setCreatingRun(false);
+    }
+  }
+
+  async function handleDeleteRun(id, runName) {
+    if (!confirm(`Eliminar la corrida "${runName}"? Esta acción no se puede deshacer.`)) return;
+    await deleteRun(id);
+    setRuns((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  if (loading || !project) {
     return (
       <div className="page">
         <p className="empty">Cargando proyecto…</p>
@@ -167,57 +140,100 @@ export default function ProjectWorkspace({ projectId }) {
           <span className="brand-mark">F0</span>
           <span className="brand-name">Letalidad térmica</span>
         </Link>
-        <span className="appbar-divider" />
-        <input
-          className="input project-name-input"
-          aria-label="Nombre del proyecto"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
         <span className="appbar-spacer" />
         <AutosaveBadge status={autosaveStatus} />
       </header>
 
       <div className="page">
         <div className="stack">
-          <div className="group-label">Entrada de datos</div>
+          <section className="card">
+            <div className="card-head">
+              <h2 className="card-title">Equipo</h2>
+            </div>
+            <div className="card-body">
+              <div className="project-meta-row">
+                <label className="field" style={{ flex: 2, minWidth: 220 }}>
+                  <span className="field-label">Nombre del proyecto</span>
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+                </label>
+                <label className="field" style={{ flex: 1, minWidth: 160 }}>
+                  <span className="field-label">Código de equipo</span>
+                  <input
+                    type="text"
+                    value={equipmentCode}
+                    onChange={(e) => setEquipmentCode(e.target.value)}
+                    placeholder="ej. CCAV0401"
+                  />
+                </label>
+              </div>
+              <label className="field">
+                <span className="field-label">Descripción</span>
+                <textarea
+                  rows={2}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="ej. Autoclave vertical de 50 L"
+                />
+              </label>
+            </div>
+          </section>
 
-          <DataSheet
-            time={rawData.time}
-            series={rawData.series}
-            sensors={sensors}
-            onChange={setRawData}
+          <CalibrationPanel
+            probes={probes}
+            onUpdateProbe={handleUpdateProbe}
+            onAddProbe={handleAddProbe}
+            onRemoveProbe={handleRemoveProbe}
           />
 
-          <OffsetsPanel
-            sensors={sensors}
-            onUpdateSensor={handleUpdateSensor}
-            onAddSensor={handleAddSensor}
-            onRemoveSensor={handleRemoveSensor}
-          />
-
-          <SettingsPanel
-            project={settings}
-            onChange={(f) => setSettings((prev) => ({ ...prev, ...f }))}
-          />
-
-          <div className="group-label">Resultados</div>
-
-          <ResultsSummary sensors={sensors} results={results} />
-
-          <TemperatureChart
-            time={rawData.time}
-            correctedSeries={correctedSeries}
-            sensors={sensors}
-            timeUnit={settings.time_unit}
-          />
-
-          <LethalityChart
-            time={rawData.time}
-            results={results}
-            sensors={sensors}
-            timeUnit={settings.time_unit}
-          />
+          <section className="card">
+            <div className="card-head">
+              <h2 className="card-title">Corridas</h2>
+              <span className="card-hint">Cámara vacía, cargada, distintos setpoints…</span>
+              <div className="card-actions">
+                <button className="btn btn-primary" onClick={handleCreateRun} disabled={creatingRun}>
+                  + Corrida
+                </button>
+              </div>
+            </div>
+            <div className="card-body">
+              {runs.length === 0 ? (
+                <p className="empty">
+                  <strong>Todavía no hay corridas</strong>
+                  Cada corrida es una hoja de datos completa: cámara vacía, cargada, un setpoint
+                  distinto…
+                </p>
+              ) : (
+                <ul className="run-list">
+                  {runs.map((r) => {
+                    const f0 = minF0(r.results_summary);
+                    return (
+                      <li className="run-row" key={r.id}>
+                        <Link href={`/proyecto/${projectId}/corrida/${r.id}`} className="run-link">
+                          <div className="run-name">{r.name}</div>
+                          <div className="run-meta">
+                            <span>Ref. F0: {r.ref_temp_f0}°C</span>
+                            <span>Actualizado {formatDate(r.updated_at)}</span>
+                          </div>
+                        </Link>
+                        {f0 !== null && (
+                          <span className="project-stat">
+                            F0 mín <b>{f0.toFixed(2)}</b> min
+                          </span>
+                        )}
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDeleteRun(r.id, r.name)}
+                          aria-label={`Eliminar ${r.name}`}
+                        >
+                          Eliminar
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </section>
         </div>
       </div>
     </>

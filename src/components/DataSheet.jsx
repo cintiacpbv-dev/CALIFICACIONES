@@ -16,14 +16,21 @@ import { parseDataFile, parsePastedText } from '@/lib/dataImport';
  *    camino robusto para cargar un lote completo, sin depender de eventos
  *    de portapapeles celda por celda (frágiles entre navegadores).
  *
+ * La fila de inicio de conteo (startIndex) se marca a mano acá: en las
+ * planillas de validación reales que se tomaron de referencia, F0/FH no
+ * arrancan en t=0 sino en la fila donde arranca la "meseta" de exposición,
+ * y esa fila se elige mirando el gráfico — no sigue una regla fija.
+ *
  * @param {{
  *   time: number[],
  *   series: Record<string, (number|null)[]>,
  *   sensors: {id: string, name: string, color: string}[],
+ *   startIndex: number,
  *   onChange: (next: {time: number[], series: Record<string, (number|null)[]>}) => void,
+ *   onSetStartIndex: (index: number) => void,
  * }} props
  */
-export default function DataSheet({ time, series, sensors, onChange }) {
+export default function DataSheet({ time, series, sensors, startIndex, onChange, onSetStartIndex }) {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
 
@@ -66,6 +73,7 @@ export default function DataSheet({ time, series, sensors, onChange }) {
       nextSeries[s.id] = dataset.values[i] ?? [];
     });
     onChange({ time: dataset.time, series: nextSeries });
+    onSetStartIndex(0);
   }
 
   async function handleFileUpload(e) {
@@ -124,7 +132,7 @@ export default function DataSheet({ time, series, sensors, onChange }) {
         {!hasSensors ? (
           <p className="empty">
             <strong>Todavía no hay sensores</strong>
-            Agregá al menos un sensor abajo para empezar a cargar temperaturas.
+            Agregá al menos una termocupla en el panel de calibración del proyecto.
           </p>
         ) : !hasRows ? (
           <p className="empty">
@@ -132,46 +140,67 @@ export default function DataSheet({ time, series, sensors, onChange }) {
             Pegá los datos desde Excel, cargá un CSV, o agregá filas a mano.
           </p>
         ) : (
-          <div className="sheet-scroll">
-            <table className="sheet-table">
-              <thead>
-                <tr>
-                  <th scope="col">Tiempo</th>
-                  {sensors.map((s) => (
-                    <th key={s.id} scope="col">
-                      <span className="sheet-swatch" style={{ background: s.color }} />
-                      {s.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {time.map((t, rowIdx) => (
-                  <tr key={rowIdx}>
-                    <td>
-                      <input
-                        type="number"
-                        aria-label={`Tiempo, fila ${rowIdx + 1}`}
-                        value={t ?? ''}
-                        onChange={(e) => setCell(rowIdx, 'time', e.target.value)}
-                      />
-                    </td>
+          <>
+            <div className="sheet-scroll">
+              <table className="sheet-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Tiempo</th>
                     {sensors.map((s) => (
-                      <td key={s.id}>
-                        <input
-                          type="number"
-                          step="0.01"
-                          aria-label={`${s.name}, fila ${rowIdx + 1}`}
-                          value={series[s.id]?.[rowIdx] ?? ''}
-                          onChange={(e) => setCell(rowIdx, s.id, e.target.value)}
-                        />
-                      </td>
+                      <th key={s.id} scope="col">
+                        <span className="sheet-swatch" style={{ background: s.color }} />
+                        {s.name}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {time.map((t, rowIdx) => (
+                    <tr
+                      key={rowIdx}
+                      className={
+                        rowIdx === startIndex ? 'is-start' : rowIdx < startIndex ? 'before-start' : ''
+                      }
+                    >
+                      <td>
+                        <div className="sheet-time-cell">
+                          <input
+                            type="number"
+                            aria-label={`Tiempo, fila ${rowIdx + 1}`}
+                            value={t ?? ''}
+                            onChange={(e) => setCell(rowIdx, 'time', e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className={`start-marker-btn${rowIdx === startIndex ? ' is-active' : ''}`}
+                            onClick={() => onSetStartIndex(rowIdx)}
+                            title="Marcar como inicio del conteo F0/FH"
+                          >
+                            {rowIdx === startIndex ? '● Inicio F0/FH' : 'Marcar inicio'}
+                          </button>
+                        </div>
+                      </td>
+                      {sensors.map((s) => (
+                        <td key={s.id}>
+                          <input
+                            type="number"
+                            step="0.01"
+                            aria-label={`${s.name}, fila ${rowIdx + 1}`}
+                            value={series[s.id]?.[rowIdx] ?? ''}
+                            onChange={(e) => setCell(rowIdx, s.id, e.target.value)}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="method-note">
+              Las filas antes de <strong>● Inicio F0/FH</strong> quedan atenuadas: no aportan
+              letalidad. Por defecto arranca en la fila 0.
+            </p>
+          </>
         )}
       </div>
 
@@ -184,7 +213,8 @@ export default function DataSheet({ time, series, sensors, onChange }) {
             <div className="modal-body">
               <p>
                 Pegá el bloque copiado de Excel: primera columna <strong>Tiempo</strong>, después una
-                columna por sensor en el mismo orden que la hoja. Reemplaza los datos actuales.
+                columna por sensor en el mismo orden que la hoja. Reemplaza los datos actuales y
+                reinicia la marca de inicio a la fila 0.
               </p>
               <textarea
                 rows={10}

@@ -1,29 +1,34 @@
 'use client';
 
 /**
- * Resultados F0 / FH por sensor.
+ * Resultados F0 / FH por sensor, con los dos métodos de integración:
+ * trapecio (recomendado por la bibliografía, número principal) y suma
+ * acumulada (el método de las planillas de validación de referencia, para
+ * poder conciliar contra corridas históricas).
  *
- * El encabezado destaca el F0 mínimo porque, en un estudio de penetración
- * de calor, el sensor más frío es el que gobierna la aceptación del proceso:
- * es el número que se mira primero.
+ * El encabezado destaca el F0 mínimo (trapecio) porque, en un estudio de
+ * penetración de calor, el sensor más frío es el que gobierna la
+ * aceptación del proceso: es el número que se mira primero.
  *
  * @param {{
  *   sensors: {id:string, name:string, color:string}[],
- *   results: Record<string, {f0:number, fh:number}>,
+ *   results: Record<string, {f0Trap:number, f0Sum:number, fhTrap:number, fhSum:number}>,
  * }} props
  */
 export default function ResultsSummary({ sensors, results }) {
   const rows = sensors.map((s) => ({
     ...s,
-    f0: results[s.id]?.f0 ?? 0,
-    fh: results[s.id]?.fh ?? 0,
+    f0Trap: results[s.id]?.f0Trap ?? 0,
+    f0Sum: results[s.id]?.f0Sum ?? 0,
+    fhTrap: results[s.id]?.fhTrap ?? 0,
+    fhSum: results[s.id]?.fhSum ?? 0,
   }));
 
-  const hasData = rows.length > 0 && rows.some((r) => r.f0 > 0 || r.fh > 0);
-  const f0Values = rows.map((r) => r.f0);
+  const hasData = rows.length > 0 && rows.some((r) => r.f0Trap > 0 || r.fhTrap > 0);
+  const f0Values = rows.map((r) => r.f0Trap);
   const minF0 = hasData ? Math.min(...f0Values) : 0;
   const maxF0 = hasData ? Math.max(...f0Values) : 0;
-  const coldest = hasData ? rows.find((r) => r.f0 === minF0) : null;
+  const coldest = hasData ? rows.find((r) => r.f0Trap === minF0) : null;
 
   return (
     <section className="card">
@@ -62,54 +67,68 @@ export default function ResultsSummary({ sensors, results }) {
         {!hasData ? (
           <p className="empty">
             <strong>Todavía no hay resultados</strong>
-            Cargá temperaturas en la hoja y el F0 / FH se calcula solo.
+            Cargá temperaturas en la hoja, marcá el inicio del conteo, y el F0 / FH se calcula solo.
           </p>
         ) : (
-          <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Sensor</th>
-                <th scope="col" style={{ textAlign: 'right' }}>
-                  F0 (min)
-                </th>
-                <th scope="col" style={{ textAlign: 'right' }}>
-                  FH (min)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <div className="sensor-cell">
-                      <span className="swatch" style={{ background: r.color }} />
-                      <span>{r.name}</span>
-                      {r.f0 === minF0 && <span className="tag">mín</span>}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="bar-cell">
-                      <span className="bar-track">
-                        <span
-                          className="bar-fill"
-                          style={{
-                            inlineSize: maxF0 > 0 ? `${(r.f0 / maxF0) * 100}%` : '0%',
-                            background: r.color,
-                          }}
-                        />
-                      </span>
-                      <span className="bar-value">{r.f0.toFixed(2)}</span>
-                    </div>
-                  </td>
-                  <td className="num">{r.fh.toFixed(2)}</td>
+          <div className="results-table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col" rowSpan={2} style={{ verticalAlign: 'bottom' }}>
+                    Sensor
+                  </th>
+                  <th scope="col" colSpan={2} style={{ textAlign: 'center' }}>
+                    F0 (min)
+                  </th>
+                  <th scope="col" colSpan={2} className="method-col-group" style={{ textAlign: 'center' }}>
+                    FH (min)
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+                <tr>
+                  <th scope="col" style={{ textAlign: 'right' }}>
+                    Trapecio
+                  </th>
+                  <th scope="col" style={{ textAlign: 'right' }}>
+                    Suma
+                  </th>
+                  <th scope="col" className="method-col-group" style={{ textAlign: 'right' }}>
+                    Trapecio
+                  </th>
+                  <th scope="col" style={{ textAlign: 'right' }}>
+                    Suma
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <div className="sensor-cell">
+                        <span className="swatch" style={{ background: r.color }} />
+                        <span>{r.name}</span>
+                        {r.f0Trap === minF0 && <span className="tag">mín</span>}
+                      </div>
+                    </td>
+                    <td className="num">{r.f0Trap.toFixed(2)}</td>
+                    <td className="num">{r.f0Sum.toFixed(2)}</td>
+                    <td className="num method-col-group">{r.fhTrap.toFixed(2)}</td>
+                    <td className="num">{r.fhSum.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
+
+      {hasData && (
+        <p className="method-note">
+          <strong>Trapecio</strong>: integración recomendada por la bibliografía, tolera intervalos
+          irregulares. <strong>Suma</strong>: réplica del método de suma acumulada (F[i]=F[i-1]+tasa·Δt)
+          usado en las planillas de validación de referencia — sirve para conciliar contra corridas
+          históricas. Ambos parten del mismo punto de inicio marcado en la hoja de datos.
+        </p>
+      )}
     </section>
   );
 }

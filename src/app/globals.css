@@ -602,6 +602,15 @@ textarea:focus {
   min-inline-size: 72px;
 }
 
+.sheet-time-cell {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 108px;
+}
+.sheet-time-cell input {
+  min-inline-size: 0;
+}
+
 /* ============================================================================
    Sensores / offsets
    ========================================================================= */
@@ -967,4 +976,144 @@ textarea:focus {
   .bar-track {
     display: none;
   }
+}
+
+/* ============================================================================
+   Calibración de termocuplas (probes)
+   ========================================================================= */
+.probe-row {
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  background: var(--n-25);
+}
+
+.probe-row-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.probe-code-input {
+  font-weight: 600;
+  max-inline-size: 140px;
+}
+
+.probe-row-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.cert-number-input {
+  max-inline-size: 160px;
+}
+
+/* ============================================================================
+   Proyecto (overview) y corridas
+   ========================================================================= */
+.project-meta-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.run-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.run-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r);
+  padding: 12px 16px;
+  background: var(--surface);
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+.run-row:hover {
+  border-color: var(--g-300);
+  box-shadow: var(--shadow-1);
+}
+
+.run-link {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+}
+.run-link:hover {
+  text-decoration: none;
+}
+
+.run-name {
+  font-weight: 550;
+  letter-spacing: -0.01em;
+}
+
+.run-meta {
+  display: flex;
+  gap: 10px;
+  color: var(--ink-3);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
+/* ============================================================================
+   Marca de inicio de conteo en la hoja de datos
+   ========================================================================= */
+.sheet-table tr.before-start td {
+  opacity: 0.4;
+}
+
+.sheet-table tr.is-start td {
+  box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
+}
+
+.start-marker-btn {
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.start-marker-btn:hover {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+.start-marker-btn.is-active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ============================================================================
+   Resultados con dos métodos (trapecio / suma)
+   ========================================================================= */
+.method-note {
+  font-size: 0.78rem;
+  color: var(--ink-3);
+  padding: 10px 18px;
+  border-top: 1px solid var(--hairline);
+  background: var(--n-25);
+}
+
+.results-table-scroll {
+  overflow-x: auto;
+}
+
+.method-col-group {
+  border-inline-start: 1px solid var(--hairline);
 }
