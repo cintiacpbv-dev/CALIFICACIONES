@@ -25,7 +25,7 @@ import {
  */
 export default function LethalityChart({ time, results, sensors, metric, timeUnit }) {
   const key = metric === 'fh' ? 'fhCumulative' : 'f0Cumulative';
-  const label = metric === 'fh' ? 'FH acumulado' : 'F0 acumulado';
+  const label = metric === 'fh' ? 'FH' : 'F0';
 
   const data = time.map((t, i) => {
     const point = { time: t };
@@ -35,21 +35,21 @@ export default function LethalityChart({ time, results, sensors, metric, timeUni
 
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-        <CartesianGrid stroke="#e1e0d9" vertical={false} />
+      <LineChart data={data} margin={{ top: 20, right: 16, bottom: 8, left: 12 }}>
+        <CartesianGrid stroke="#dee6e1" vertical={false} />
         <XAxis
           dataKey="time"
-          stroke="#c3c2b7"
-          tick={{ fill: '#898781', fontSize: 12 }}
-          label={{ value: `Tiempo (${timeUnit})`, position: 'insideBottom', offset: -4, fill: '#898781' }}
+          stroke="#b9c6bd"
+          tick={{ fill: '#7c8b82', fontSize: 12 }}
+          label={{ value: `Tiempo (${timeUnit})`, position: 'insideBottom', offset: -4, fill: '#7c8b82' }}
         />
         <YAxis
-          stroke="#c3c2b7"
-          tick={{ fill: '#898781', fontSize: 12 }}
-          label={{ value: `${label} (min)`, angle: -90, position: 'insideLeft', fill: '#898781' }}
+          stroke="#b9c6bd"
+          tick={{ fill: '#7c8b82', fontSize: 12 }}
+          label={{ value: `${label} (min)`, angle: -90, position: 'insideLeft', fill: '#7c8b82' }}
         />
-        <Tooltip contentStyle={{ border: '1px solid rgba(11,11,11,0.1)', borderRadius: 8, fontSize: 13 }} />
-        <Legend wrapperStyle={{ fontSize: 13, color: '#52514e' }} />
+        <Tooltip contentStyle={{ border: '1px solid rgba(13,31,22,0.1)', borderRadius: 8, fontSize: 13 }} />
+        <Legend wrapperStyle={{ fontSize: 13, color: '#4a5951' }} />
         {sensors.map((s) => (
           <Line
             key={s.id}

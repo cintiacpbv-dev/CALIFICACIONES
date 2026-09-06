@@ -1,18 +1,23 @@
 :root {
-  --page-plane: #f9f9f7;
-  --surface: #fcfcfb;
-  --ink-primary: #0b0b0b;
-  --ink-secondary: #52514e;
-  --ink-muted: #898781;
-  --hairline: #e1e0d9;
-  --border: rgba(11, 11, 11, 0.1);
-  --accent: #2a78d6;
+  --page-plane: #f5f8f6;
+  --surface: #ffffff;
+  --surface-sunken: #eef3ef;
+  --ink-primary: #0d1f16;
+  --ink-secondary: #4a5951;
+  --ink-muted: #7c8b82;
+  --hairline: #dee6e1;
+  --border: rgba(13, 31, 22, 0.09);
+  --accent: #0f7a4d;
+  --accent-hover: #0b6440;
+  --accent-soft: #e6f4ec;
   --accent-ink: #ffffff;
-  --good: #0ca30c;
-  --warning: #fab219;
-  --critical: #d03b3b;
-  --radius: 10px;
-  --radius-sm: 6px;
+  --good: #0f7a4d;
+  --warning: #b45309;
+  --critical: #b3261e;
+  --radius: 12px;
+  --radius-sm: 7px;
+  --shadow-sm: 0 1px 2px rgba(13, 31, 22, 0.05), 0 1px 1px rgba(13, 31, 22, 0.04);
+  --shadow-md: 0 12px 28px rgba(13, 31, 22, 0.1), 0 2px 6px rgba(13, 31, 22, 0.05);
 }
 
 * {
@@ -27,10 +32,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #1baf7a);
+  z-index: 100;
+}
+
 .page {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 40px 24px 80px;
+  padding: 44px 24px 80px;
 }
 
 h1 {
@@ -57,16 +73,24 @@ button {
   border-radius: var(--radius-sm);
   padding: 7px 14px;
   font-size: 0.85rem;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 
 button:hover {
   border-color: var(--ink-muted);
 }
 
+button:active {
+  transform: translateY(1px);
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: default;
+  transform: none;
 }
 
 button.primary {
@@ -76,8 +100,10 @@ button.primary {
 }
 
 button.primary:hover {
-  background: #256abf;
-  border-color: #256abf;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 button.danger {
@@ -88,7 +114,7 @@ button.danger {
 
 button.danger:hover {
   border-color: var(--critical);
-  background: #fdf1f0;
+  background: #fdf0ef;
 }
 
 input,
@@ -123,10 +149,11 @@ textarea:focus {
   border-radius: var(--radius);
   color: var(--ink-secondary);
   font-size: 0.88rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .warning-box code {
-  background: var(--page-plane);
+  background: var(--surface-sunken);
   border-radius: 4px;
   padding: 1px 5px;
   font-size: 0.85em;
@@ -138,6 +165,8 @@ textarea:focus {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--hairline);
 }
 
 .project-panel-header h2 {
@@ -160,11 +189,14 @@ textarea:focus {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px 18px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .project-list-item:hover {
-  border-color: var(--ink-muted);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
 }
 
 .project-list-link {
@@ -188,7 +220,7 @@ textarea:focus {
 }
 
 .workspace-header a:hover {
-  color: var(--ink-primary);
+  color: var(--accent);
 }
 
 .project-name-input {
@@ -198,6 +230,7 @@ textarea:focus {
   border-color: transparent;
   background: transparent;
   padding: 5px 9px;
+  box-shadow: none;
 }
 
 .project-name-input:hover {
@@ -208,25 +241,25 @@ textarea:focus {
   font-size: 0.75rem;
   padding: 3px 11px;
   border-radius: 999px;
-  background: var(--page-plane);
+  background: var(--surface-sunken);
   color: var(--ink-muted);
   border: 1px solid var(--border);
   white-space: nowrap;
 }
 .autosave-saving {
-  color: #9a7000;
-  border-color: rgba(250, 178, 25, 0.4);
-  background: #fffaf0;
+  color: #92590a;
+  border-color: rgba(180, 83, 9, 0.25);
+  background: #fdf3e7;
 }
 .autosave-saved {
   color: var(--good);
-  border-color: rgba(12, 163, 12, 0.25);
-  background: #f2faf2;
+  border-color: rgba(15, 122, 77, 0.22);
+  background: var(--accent-soft);
 }
 .autosave-error {
   color: var(--critical);
-  border-color: rgba(208, 59, 59, 0.3);
-  background: #fdf1f0;
+  border-color: rgba(179, 38, 30, 0.25);
+  background: #fdf0ef;
 }
 
 section {
@@ -235,6 +268,7 @@ section {
   border-radius: var(--radius);
   padding: 24px;
   margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
 }
 
 /* --- Data sheet --- */
@@ -265,7 +299,7 @@ section {
 .sheet-table th {
   position: sticky;
   top: 0;
-  background: var(--page-plane);
+  background: var(--surface-sunken);
   padding: 7px 10px;
   font-size: 0.78rem;
   font-weight: 600;
@@ -279,12 +313,13 @@ section {
   border-radius: 0;
   padding: 5px 10px;
   background: transparent;
+  box-shadow: none;
 }
 
 .sheet-table input:focus {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
-  background: var(--surface);
+  background: var(--accent-soft);
 }
 
 .file-upload-btn {
@@ -292,9 +327,12 @@ section {
   border-radius: var(--radius-sm);
   padding: 7px 14px;
   font-size: 0.85rem;
+  font-weight: 500;
   background: var(--surface);
   color: var(--ink-primary);
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease;
 }
 .file-upload-btn:hover {
   border-color: var(--ink-muted);
@@ -303,12 +341,13 @@ section {
   padding: 2px 9px;
   font-size: 0.72rem;
   margin-left: 6px;
+  box-shadow: none;
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(11, 11, 11, 0.35);
+  background: rgba(13, 31, 22, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -322,6 +361,7 @@ section {
   padding: 24px;
   width: 90%;
   max-width: 560px;
+  box-shadow: var(--shadow-md);
 }
 
 .modal h3 {
@@ -387,8 +427,14 @@ section {
   font-size: 0.88rem;
 }
 
+.offsets-table tr:hover td,
+.results-table tr:hover td {
+  background: var(--surface-sunken);
+}
+
 .offsets-table input {
   width: 100%;
+  box-shadow: none;
 }
 
 /* --- Settings panel --- */
@@ -405,6 +451,7 @@ section {
   gap: 14px;
   padding: 12px 16px 14px;
   margin: 0;
+  background: var(--surface-sunken);
 }
 
 .settings-panel legend {
@@ -412,7 +459,7 @@ section {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--ink-muted);
+  color: var(--accent);
   padding: 0 4px;
 }
 
@@ -427,6 +474,7 @@ section {
 .settings-panel input,
 .settings-panel select {
   width: 90px;
+  box-shadow: none;
 }
 
 .lethality-header {

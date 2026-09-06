@@ -2,17 +2,19 @@
 
 import { uploadCalibrationCert } from '@/lib/projectsApi';
 
-// Paleta categórica validada (orden fijo, no ciclado por hue): separación
-// segura para daltonismo entre pares adyacentes en fondo claro.
+// Paleta categórica validada (orden fijo, no ciclado por hue), reordenada
+// para abrir con el verde de marca sin perder la separación segura para
+// daltonismo entre pares adyacentes en fondo claro (mismas 8 familias de
+// color del método, sólo cambia el orden).
 const PALETTE = [
+  '#008300', // verde (marca)
+  '#e34948', // rojo
   '#2a78d6', // azul
   '#eb6834', // naranja
-  '#1baf7a', // aqua
-  '#eda100', // amarillo
-  '#e87ba4', // magenta
-  '#008300', // verde
   '#4a3aa7', // violeta
-  '#e34948', // rojo
+  '#eda100', // amarillo
+  '#1baf7a', // aqua
+  '#e87ba4', // magenta
 ];
 
 /**
