@@ -35,13 +35,11 @@ function linearRegression(points) {
 /**
  * Arma la recta de calibración de un sensor a partir de sus puntos de
  * certificado, replicando exactamente `FORECAST.LINEAR(cruda, TCV, EQUI)`
- * tal como está escrito en las planillas de referencia: la recta se ajusta
- * con x = EQUI (valor real del baño) e y = TCV (lo que leyó el canal en
- * calibración), y esa misma recta se evalúa directo en la lectura cruda del
- * proceso (`applyCalibration`). No es la inversa "pura" del modelo — es
- * la aproximación que usa el método de referencia, válida porque la
- * pendiente da casi 1 (el error de calibración es chico). Se replica tal
- * cual para que los resultados concilien con esas planillas.
+ * tal como está escrito en las planillas de referencia: x = EQUI (lo que
+ * leyó el canal) e y = TCV (el valor certificado del patrón), y esa recta
+ * se evalúa en la lectura cruda del proceso (`applyCalibration`), que está
+ * en el mismo dominio que EQUI. Verificado contra valores reales de esas
+ * planillas (coincide a 12+ dígitos, con 2 y con 3 puntos).
  *
  * Con menos de 2 puntos no hay corrección posible (identidad).
  *

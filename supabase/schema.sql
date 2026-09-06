@@ -39,13 +39,17 @@ alter table projects add column if not exists equipment_code text;
 
 -- ----------------------------------------------------------------------------
 -- probes: termocuplas físicas del equipo. La calibración vive acá porque es
--- del sensor, no de la corrida: el mismo certificado (2 o 3 puntos TCV↔EQUI
--- del baño de calibración) se reutiliza en todas las corridas del estudio,
--- tal como está armado en las planillas reales que se tomaron de referencia.
+-- del sensor, no de la corrida: el mismo certificado (2 o 3 puntos) se
+-- reutiliza en todas las corridas del estudio, tal como está armado en las
+-- planillas reales que se tomaron de referencia.
 --
--- calibration_points: [{ "tcv": number, "equi": number }, ...] — 2 o 3
--- puntos. Se ajusta una recta por cuadrados mínimos (igual que
--- FORECAST.LINEAR de Excel) y esa recta corrige cada lectura cruda:
+-- calibration_points: [{ "equi": number, "tcv": number }, ...] — 2 o 3
+-- puntos, con los nombres de columna de las planillas de referencia:
+--   equi = lo que leyó ESE canal en el punto de calibración (mismo dominio
+--          que la data cruda de la corrida)
+--   tcv  = el valor certificado del patrón en ese punto
+-- Se ajusta tcv = f(equi) por cuadrados mínimos (igual que FORECAST.LINEAR
+-- de Excel) y esa recta corrige cada lectura cruda:
 --   corregida = intercepto + pendiente · cruda
 -- Con 2 puntos la recta pasa exacta por ambos; con 3, es la mejor recta.
 -- ----------------------------------------------------------------------------
@@ -179,57 +183,12 @@ create policy "allow all calibration-certs" on storage.objects
   with check (bucket_id = 'calibration-certs');
 
 -- ============================================================================
--- Migración desde el esquema v1 (proyecto plano, sin corridas)
+-- ¿Venís del esquema v1 (proyecto plano, sin corridas)?
 -- ============================================================================
--- Si ya tenías el esquema anterior (projects.raw_data + tabla sensors),
--- ejecutá esto DESPUÉS de lo de arriba para migrar cada proyecto viejo a
--- una corrida única "Corrida 1", preservando data y offsets como un punto
--- de calibración equivalente (offset ⇔ recta con pendiente 1):
+-- Este archivo es idempotente: correrlo sobre una base v1 crea las tablas
+-- nuevas y agrega la columna que faltaba, sin tocar los datos viejos.
 --
--- do $$
--- declare
---   p record;
---   new_run_id uuid;
---   s record;
---   new_probe_id uuid;
---   sensor_map jsonb := '{}'::jsonb;
--- begin
---   for p in select * from projects where raw_data is not null loop
---     insert into runs (project_id, name, ref_temp_f0, z_value_f0,
---       ref_temp_fh, z_value_fh, time_unit, raw_data)
---     values (p.id, 'Corrida 1', p.ref_temp_f0, p.z_value_f0,
---       p.ref_temp_fh, p.z_value_fh, p.time_unit, p.raw_data)
---     returning id into new_run_id;
---
---     for s in select * from sensors where project_id = p.id loop
---       insert into probes (project_id, code, color, sort_order,
---         calibration_points)
---       values (p.id, s.name, s.color, s.sort_order,
---         jsonb_build_array(
---           jsonb_build_object('tcv', 0, 'equi', s.offset_celsius),
---           jsonb_build_object('tcv', 100, 'equi', 100 + s.offset_celsius)
---         ))
---       returning id into new_probe_id;
---       sensor_map := sensor_map || jsonb_build_object(s.id::text, new_probe_id::text);
---     end loop;
---
---     update runs set
---       raw_data = jsonb_build_object(
---         'time', raw_data->'time',
---         'series', (
---           select jsonb_object_agg(sensor_map->>key, raw_data->'series'->key)
---           from jsonb_object_keys(raw_data->'series') as key
---         )
---       )
---     where id = new_run_id;
---   end loop;
--- end $$;
---
--- alter table projects drop column if exists raw_data;
--- alter table projects drop column if exists results_summary;
--- alter table projects drop column if exists ref_temp_f0;
--- alter table projects drop column if exists z_value_f0;
--- alter table projects drop column if exists ref_temp_fh;
--- alter table projects drop column if exists z_value_fh;
--- alter table projects drop column if exists time_unit;
--- drop table if exists sensors;
+-- Para MIGRAR esos datos viejos al modelo nuevo (una corrida por proyecto,
+-- offsets convertidos a puntos de calibración equivalentes), ejecutar
+-- después: supabase/migration_v1_to_v2.sql
+-- ============================================================================

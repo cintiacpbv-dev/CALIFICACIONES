@@ -22,11 +22,15 @@ export function nextProbeColor(existingCount) {
 }
 
 /**
- * Calibración de las termocuplas del equipo: 2 o 3 puntos por sensor
- * (TCV = lo que leyó el canal en el baño de calibración, EQUI = el valor
- * real del baño). Con esos puntos se arma la recta que corrige cada
- * lectura cruda — ver lib/calibration.js. Vive a nivel proyecto porque el
- * mismo certificado se reutiliza en todas las corridas del equipo.
+ * Calibración de las termocuplas del equipo: 2 o 3 puntos por sensor.
+ * En las planillas de referencia las dos columnas son:
+ *   EQUI = lo que leyó ESTE canal en el punto de calibración (mismo
+ *          dominio que la data cruda de la corrida: la data en vivo va en
+ *          esa misma columna).
+ *   TCV  = el valor certificado del patrón en ese punto (el "verdadero").
+ * Con esos puntos se arma la recta que corrige cada lectura cruda — ver
+ * lib/calibration.js. Vive a nivel proyecto porque el mismo certificado se
+ * reutiliza en todas las corridas del equipo.
  *
  * @param {{
  *   probes: {id:string, code:string, color:string,
@@ -72,7 +76,7 @@ export default function CalibrationPanel({ probes, onUpdateProbe, onAddProbe, on
     <section className="card">
       <div className="card-head">
         <h2 className="card-title">Termocuplas y calibración</h2>
-        <span className="card-hint">2-3 puntos por sensor (TCV del canal ↔ EQUI del baño)</span>
+        <span className="card-hint">2-3 puntos por sensor: lectura del canal ↔ valor del patrón</span>
         <div className="card-actions">
           <button className="btn btn-primary" onClick={onAddProbe}>
             + Termocupla
@@ -124,8 +128,8 @@ export default function CalibrationPanel({ probes, onUpdateProbe, onAddProbe, on
                       <thead>
                         <tr>
                           <th scope="col">Punto</th>
-                          <th scope="col">TCV (canal, °C)</th>
-                          <th scope="col">EQUI (baño, °C)</th>
+                          <th scope="col">EQUI — lectura del canal (°C)</th>
+                          <th scope="col">TCV — valor patrón (°C)</th>
                           <th scope="col" aria-label="Acciones" />
                         </tr>
                       </thead>
@@ -138,9 +142,9 @@ export default function CalibrationPanel({ probes, onUpdateProbe, onAddProbe, on
                                 type="number"
                                 step="0.01"
                                 className="num"
-                                aria-label={`TCV punto ${i + 1}`}
-                                value={p.tcv ?? ''}
-                                onChange={(e) => updatePoint(probe, i, 'tcv', e.target.value)}
+                                aria-label={`Lectura del canal (EQUI), punto ${i + 1}`}
+                                value={p.equi ?? ''}
+                                onChange={(e) => updatePoint(probe, i, 'equi', e.target.value)}
                               />
                             </td>
                             <td>
@@ -148,9 +152,9 @@ export default function CalibrationPanel({ probes, onUpdateProbe, onAddProbe, on
                                 type="number"
                                 step="0.01"
                                 className="num"
-                                aria-label={`EQUI punto ${i + 1}`}
-                                value={p.equi ?? ''}
-                                onChange={(e) => updatePoint(probe, i, 'equi', e.target.value)}
+                                aria-label={`Valor patrón (TCV), punto ${i + 1}`}
+                                value={p.tcv ?? ''}
+                                onChange={(e) => updatePoint(probe, i, 'tcv', e.target.value)}
                               />
                             </td>
                             <td>

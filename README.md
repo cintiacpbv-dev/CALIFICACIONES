@@ -47,8 +47,11 @@ variables `POSTGRES_*` pensadas para un ORM: esta app no las usa, podés
 dejarlas ahí sin efecto.
 
 > Si ya tenías el esquema v1 (un proyecto = un dataset plano, sin corridas)
-> corriendo, `schema.sql` incluye al final un bloque de migración comentado
-> que lo lleva al esquema actual.
+> corriendo, `schema.sql` es idempotente: crea lo nuevo sin tocar lo viejo.
+> Para migrar los datos v1 al modelo actual, ejecutar después
+> [`supabase/migration_v1_to_v2.sql`](./supabase/migration_v1_to_v2.sql) —
+> crea una corrida por proyecto y convierte cada offset en dos puntos de
+> calibración equivalentes (verificado: reproduce exacto el cálculo v1).
 
 ## Desplegar en Vercel
 
@@ -69,8 +72,8 @@ projects (equipo)  →  probes (termocuplas + calibración)
 ```
 
 - **`probes`**: la calibración vive acá, no en la corrida — el mismo
-  certificado (2 o 3 puntos TCV↔EQUI) se reutiliza en todas las corridas del
-  equipo, igual que en las planillas de referencia.
+  certificado (2 o 3 puntos) se reutiliza en todas las corridas del equipo,
+  igual que en las planillas de referencia.
 - **`runs`**: cada corrida tiene su propio `raw_data` (JSONB
   `{time, series: {probeId: number[]}}`, autoguardado entero con debounce)
   y sus propios `ref_temp_f0/z_value_f0/ref_temp_fh/z_value_fh` — el mismo
@@ -87,7 +90,8 @@ Ver el esquema exacto, comentado, en [`supabase/schema.sql`](./supabase/schema.s
 
 Las planillas de referencia no suman un offset constante — arman una recta
 por cuadrados mínimos a partir de los puntos del certificado de calibración
-(`TCV` = lo que leyó el canal en el baño, `EQUI` = el valor real del baño) y
+(`EQUI` = lo que leyó ese canal en el punto de calibración — mismo dominio
+que la data cruda; `TCV` = el valor certificado del patrón en ese punto) y
 evalúan esa recta en cada lectura cruda (replica `FORECAST.LINEAR` de
 Excel — la fórmula real está en `src/lib/calibration.js`, verificada
 numéricamente contra valores de esas planillas). Un offset fijo sólo es
@@ -154,7 +158,8 @@ src/
     supabaseClient.js                Cliente Supabase (o null sin credenciales)
     useDebouncedAutosave.js          Hook de autoguardado con debounce
 supabase/
-  schema.sql                        Esquema completo, comentado, con migración desde v1
+  schema.sql                        Esquema completo, comentado, idempotente
+  migration_v1_to_v2.sql            Migración opcional de datos del esquema v1
 ```
 
 ## Próximos pasos posibles
