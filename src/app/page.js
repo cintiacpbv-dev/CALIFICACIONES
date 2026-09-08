@@ -1,5 +1,7 @@
 import ProjectPanel from '@/components/ProjectPanel';
 
+export const metadata = { title: 'Proyectos' };
+
 export default function HomePage() {
   return (
     <>

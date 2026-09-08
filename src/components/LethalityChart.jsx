@@ -17,6 +17,8 @@ import ChartTooltip from './ChartTooltip';
 const AXIS = '#8d9a94';
 const GRID = '#eaeeec';
 const LINE = '#dde3e0';
+const MARKER = '#eb6834';
+const LIMIT = '#2a78d6';
 
 /**
  * Curva de letalidad acumulada (F0 o FH) en el tiempo, por sensor, con los
@@ -29,14 +31,29 @@ const LINE = '#dde3e0';
  *   results: Record<string, {f0TrapCumulative:number[], f0SumCumulative:number[], fhTrapCumulative:number[], fhSumCumulative:number[]}>,
  *   sensors: {id:string, name:string, color:string}[],
  *   timeUnit: 'min'|'s',
+ *   f0MinRequired?: number|null,
+ *   fhMinRequired?: number|null,
  * }} props
  */
-export default function LethalityChart({ time, results, sensors, timeUnit, startTime, endTime }) {
+export default function LethalityChart({
+  time,
+  results,
+  sensors,
+  timeUnit,
+  startTime,
+  endTime,
+  f0MinRequired,
+  fhMinRequired,
+}) {
   const [metric, setMetric] = useState('f0');
   const [method, setMethod] = useState('trap');
 
   const key = `${metric}${method === 'trap' ? 'Trap' : 'Sum'}Cumulative`;
   const label = metric === 'fh' ? 'FH' : 'F0';
+  // El criterio dibujado es el de la métrica que se está mirando: una línea
+  // de F0 mínimo sobre la curva de FH no significaría nada.
+  const required = metric === 'fh' ? fhMinRequired : f0MinRequired;
+  const hasRequired = Number.isFinite(required);
 
   const data = time.map((t, i) => {
     const point = { time: t };
@@ -48,7 +65,10 @@ export default function LethalityChart({ time, results, sensors, timeUnit, start
     <section className="card">
       <div className="card-head">
         <h2 className="card-title">Letalidad acumulada</h2>
-        <div className="card-actions">
+        <span className="card-hint">
+          {label} · método {method === 'trap' ? 'trapecio' : 'suma acumulada'}
+        </span>
+        <div className="card-actions no-print">
           <div className="seg" role="group" aria-label="Método de integración">
             <button aria-pressed={method === 'trap'} onClick={() => setMethod('trap')}>
               Trapecio
@@ -112,20 +132,34 @@ export default function LethalityChart({ time, results, sensors, timeUnit, start
                 iconSize={14}
                 wrapperStyle={{ fontSize: 12, paddingBottom: 12 }}
               />
+              {hasRequired && (
+                <ReferenceLine
+                  y={required}
+                  stroke={LIMIT}
+                  strokeDasharray="6 3"
+                  ifOverflow="extendDomain"
+                  label={{
+                    value: `${label} mínimo ${required} min`,
+                    position: 'insideBottomRight',
+                    fill: LIMIT,
+                    fontSize: 11,
+                  }}
+                />
+              )}
               {startTime != null && (
                 <ReferenceLine
                   x={startTime}
-                  stroke="#eb6834"
+                  stroke={MARKER}
                   strokeDasharray="4 3"
-                  label={{ value: 'inicio F0/FH', position: 'insideTopLeft', fill: '#eb6834', fontSize: 11 }}
+                  label={{ value: 'inicio F0/FH', position: 'insideTopLeft', fill: MARKER, fontSize: 11 }}
                 />
               )}
               {endTime != null && (
                 <ReferenceLine
                   x={endTime}
-                  stroke="#eb6834"
+                  stroke={MARKER}
                   strokeDasharray="4 3"
-                  label={{ value: 'fin F0/FH', position: 'insideTopRight', fill: '#eb6834', fontSize: 11 }}
+                  label={{ value: 'fin F0/FH', position: 'insideTopRight', fill: MARKER, fontSize: 11 }}
                 />
               )}
               {sensors.map((s) => (

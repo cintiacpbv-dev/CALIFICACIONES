@@ -46,7 +46,11 @@ export async function getProjectOverview(id) {
       supabase.from('probes').select('*').eq('project_id', id).order('sort_order'),
       supabase
         .from('runs')
-        .select('id, name, sort_order, ref_temp_f0, ref_temp_fh, time_unit, results_summary, updated_at')
+        .select(
+          'id, name, sort_order, ref_temp_f0, ref_temp_fh, time_unit, results_summary, ' +
+            'acceptance_summary, f0_min_required, fh_min_required, temp_low_limit, temp_high_limit, ' +
+            'run_date, batch_code, cycle_code, load_description, operator, updated_at'
+        )
         .eq('project_id', id)
         .order('sort_order'),
     ]);
@@ -111,18 +115,26 @@ export async function createRun(projectId, { name, sortOrder }) {
   return data;
 }
 
-/** Trae una corrida y los probes de su proyecto (para armar la hoja de datos). */
+/**
+ * Trae una corrida con los probes y el proyecto al que pertenece. El
+ * proyecto viene acá y no en una llamada aparte porque el informe exportado
+ * necesita el nombre y el código de equipo en su encabezado.
+ */
 export async function getRun(runId) {
   if (!supabase) throw new Error('Supabase no está configurado.');
   const { data: run, error: rErr } = await supabase.from('runs').select('*').eq('id', runId).single();
   if (rErr) throw rErr;
-  const { data: probes, error: pErr } = await supabase
-    .from('probes')
-    .select('*')
-    .eq('project_id', run.project_id)
-    .order('sort_order');
+  const [{ data: probes, error: pErr }, { data: project, error: prErr }] = await Promise.all([
+    supabase.from('probes').select('*').eq('project_id', run.project_id).order('sort_order'),
+    supabase
+      .from('projects')
+      .select('id, name, equipment_code, description')
+      .eq('id', run.project_id)
+      .single(),
+  ]);
   if (pErr) throw pErr;
-  return { run, probes: probes ?? [] };
+  if (prErr) throw prErr;
+  return { run, probes: probes ?? [], project };
 }
 
 export async function saveRunFields(id, fields) {

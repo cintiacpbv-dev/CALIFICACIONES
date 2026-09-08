@@ -1,20 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { parseDataFile, parsePastedText } from '@/lib/dataImport';
+import { useToast } from './Toast';
 
 /**
  * Hoja de datos interactiva (tipo Minitab): una columna "Tiempo" + una
- * columna por sensor. Dos formas de cargar datos, ambas conviven:
+ * columna por sensor. Tres formas de cargar datos, todas conviven:
  *
- * 1. Edición celda a celda con una tabla editable simple — se prefirió a una
- *    librería de grid de terceros (evaluada y descartada: la única versión
- *    de react-data-grid compatible con esta versión de React depende de una
- *    API todavía no soportada por el pipeline de build de Next.js).
- * 2. "Pegar / importar datos": pega un bloque TSV (tal cual copia Excel) o
- *    sube un CSV/XLSX, y reemplaza la hoja entera de una sola vez. Es el
- *    camino robusto para cargar un lote completo, sin depender de eventos
- *    de portapapeles celda por celda (frágiles entre navegadores).
+ * 1. Edición celda a celda, con navegación por teclado (flechas / Enter /
+ *    Tab). Se prefirió una tabla propia a una librería de grid de terceros
+ *    (evaluada y descartada: la única versión de react-data-grid compatible
+ *    con esta versión de React depende de una API todavía no soportada por
+ *    el pipeline de build de Next.js).
+ * 2. "Pegar datos": pega un bloque TSV tal cual lo copia Excel.
+ * 3. CSV / XLSX: reemplaza la hoja entera de una sola vez.
+ *
+ * Las celdas son <input type="text"> y no type="number" a propósito: en un
+ * input numérico las flechas ↑/↓ incrementan el valor, y acá tienen que
+ * mover el cursor entre filas como en cualquier planilla. La validación
+ * numérica se hace al confirmar el valor.
  *
  * La ventana de conteo (startIndex..endIndex) se marca a mano acá: en las
  * planillas de validación reales que se tomaron de referencia, F0/FH no
@@ -33,6 +38,18 @@ import { parseDataFile, parsePastedText } from '@/lib/dataImport';
  *   onSetEndIndex: (index: number|null) => void,
  * }} props
  */
+/**
+ * Texto de una celda. Recorta el ruido binario del punto flotante — una
+ * lectura de 58.4 pegada desde Excel puede llegar como 58.400000000000006 y
+ * llenar la hoja de decimales que nadie escribió. toPrecision(12) deja
+ * intacto cualquier dato real de un registrador (5-6 cifras significativas).
+ */
+function cellText(value) {
+  if (value == null || value === '') return '';
+  if (typeof value !== 'number' || !Number.isFinite(value)) return String(value);
+  return String(Number(value.toPrecision(12)));
+}
+
 export default function DataSheet({
   time,
   series,
@@ -43,11 +60,19 @@ export default function DataSheet({
   onSetStartIndex,
   onSetEndIndex,
 }) {
+  const toast = useToast();
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  // Texto tal como se está tipeando en la celda con foco. Sin esto, escribir
+  // "12." o "-" se perdería: Number("12.") no es finito y la celda se
+  // vaciaría sola en medio de la carga.
+  const [draft, setDraft] = useState(null);
+  const gridRef = useRef(null);
 
   function setCell(rowIdx, key, rawValue) {
-    const value = rawValue === '' ? null : Number(rawValue);
+    const trimmed = String(rawValue).trim();
+    const parsed = trimmed === '' ? null : Number(trimmed);
+    const value = parsed != null && !Number.isFinite(parsed) ? null : parsed;
     if (key === 'time') {
       const nextTime = [...time];
       nextTime[rowIdx] = value;
@@ -57,6 +82,79 @@ export default function DataSheet({
     const nextSeries = { ...series, [key]: [...(series[key] ?? [])] };
     nextSeries[key][rowIdx] = value;
     onChange({ time, series: nextSeries });
+  }
+
+  /** Mueve el foco a otra celda de la grilla, si existe. */
+  function focusCell(rowIdx, colIdx) {
+    const el = gridRef.current?.querySelector(`[data-cell="${rowIdx}-${colIdx}"]`);
+    if (el) {
+      el.focus();
+      el.select?.();
+      return true;
+    }
+    return false;
+  }
+
+  /** true si el cursor está en el borde pedido, o si todo el texto está seleccionado. */
+  function atEdge(input, side) {
+    const { selectionStart, selectionEnd, value } = input;
+    const allSelected = selectionStart === 0 && selectionEnd === value.length;
+    if (allSelected) return true;
+    return side === 'start'
+      ? selectionStart === 0 && selectionEnd === 0
+      : selectionStart === value.length && selectionEnd === value.length;
+  }
+
+  function handleKeyDown(e, rowIdx, colIdx) {
+    const cols = sensors.length; // índice máximo: 0 = tiempo, 1..cols = sensores
+    switch (e.key) {
+      case 'ArrowDown':
+      case 'Enter':
+        e.preventDefault();
+        if (!focusCell(rowIdx + 1, colIdx) && e.key === 'Enter') addRow();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        focusCell(rowIdx - 1, colIdx);
+        break;
+      // ←/→ saltan de columna cuando el cursor ya está en el borde del
+      // texto, o cuando la celda recién recibió el foco y su contenido está
+      // entero seleccionado (que es como se llega navegando). Estando en
+      // medio de un número se comportan como en cualquier input: mueven el
+      // cursor, no la celda.
+      case 'ArrowLeft':
+        if (atEdge(e.target, 'start')) {
+          e.preventDefault();
+          if (colIdx > 0) focusCell(rowIdx, colIdx - 1);
+        }
+        break;
+      case 'ArrowRight':
+        if (atEdge(e.target, 'end')) {
+          e.preventDefault();
+          if (colIdx < cols) focusCell(rowIdx, colIdx + 1);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  function cellProps(rowIdx, colIdx, key, storedValue) {
+    const id = `${rowIdx}-${colIdx}`;
+    return {
+      type: 'text',
+      inputMode: 'decimal',
+      autoComplete: 'off',
+      'data-cell': id,
+      value: draft?.id === id ? draft.text : cellText(storedValue),
+      onChange: (e) => {
+        setDraft({ id, text: e.target.value });
+        setCell(rowIdx, key, e.target.value);
+      },
+      onFocus: (e) => setDraft({ id, text: e.target.value }),
+      onBlur: () => setDraft((d) => (d?.id === id ? null : d)),
+      onKeyDown: (e) => handleKeyDown(e, rowIdx, colIdx),
+    };
   }
 
   function addRow() {
@@ -82,10 +180,11 @@ export default function DataSheet({
     if (endIndex != null && endIndex > lastRow) onSetEndIndex(null);
   }
 
-  function applyImportedDataset(dataset) {
+  function applyImportedDataset(dataset, origin) {
     // dataset.sensorNames viene del archivo/pegado; se mapea 1:1 por
     // posición a los sensores ya creados. Si hay más columnas que sensores,
     // se ignoran las sobrantes (el usuario debe crear el sensor primero).
+    const previous = { time, series, startIndex, endIndex };
     const nextSeries = {};
     sensors.forEach((s, i) => {
       nextSeries[s.id] = dataset.values[i] ?? [];
@@ -93,6 +192,25 @@ export default function DataSheet({
     onChange({ time: dataset.time, series: nextSeries });
     onSetStartIndex(0);
     onSetEndIndex(null);
+
+    const extra = dataset.sensorNames.length - sensors.length;
+    toast.push({
+      level: 'success',
+      title: `${dataset.time.length} lecturas cargadas desde ${origin}`,
+      detail:
+        extra > 0
+          ? `Se ignoraron ${extra} columna(s): agregá esas termocuplas al equipo y volvé a importar.`
+          : 'La ventana de conteo se reinició a la hoja completa.',
+      duration: 12000,
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          onChange({ time: previous.time, series: previous.series });
+          onSetStartIndex(previous.startIndex);
+          onSetEndIndex(previous.endIndex);
+        },
+      },
+    });
   }
 
   async function handleFileUpload(e) {
@@ -100,25 +218,37 @@ export default function DataSheet({
     if (!file) return;
     try {
       const dataset = await parseDataFile(file);
-      applyImportedDataset(dataset);
+      if (!dataset.time.length) {
+        toast.error('El archivo no tiene filas de datos', 'Revisá que la primera fila sea el encabezado y la primera columna el tiempo.');
+        return;
+      }
+      applyImportedDataset(dataset, file.name);
     } catch (err) {
-      alert(err.message);
+      toast.error('No se pudo leer el archivo', err.message);
     } finally {
       e.target.value = '';
     }
   }
 
   function handlePasteApply() {
-    applyImportedDataset(parsePastedText(pasteText));
-    setPasteOpen(false);
-    setPasteText('');
+    try {
+      const dataset = parsePastedText(pasteText);
+      if (!dataset.time.length) {
+        toast.error('No se reconoció ninguna fila de datos', 'Pegá el bloque incluyendo la fila de encabezado.');
+        return;
+      }
+      applyImportedDataset(dataset, 'el portapapeles');
+      setPasteOpen(false);
+      setPasteText('');
+    } catch (err) {
+      toast.error('No se pudo interpretar el texto pegado', err.message);
+    }
   }
 
   const hasSensors = sensors.length > 0;
   const hasRows = time.length > 0;
   // endIndex null = hasta la última fila
   const effectiveEnd = endIndex ?? time.length - 1;
-  const windowInverted = hasRows && effectiveEnd < startIndex;
 
   function rowClass(rowIdx) {
     if (rowIdx === startIndex) return 'is-start';
@@ -128,7 +258,7 @@ export default function DataSheet({
   }
 
   return (
-    <section className="card">
+    <section className="card no-print">
       <div className="card-head">
         <h2 className="card-title">Hoja de datos</h2>
         <span className="card-hint">
@@ -170,7 +300,7 @@ export default function DataSheet({
           </p>
         ) : (
           <>
-            <div className="sheet-scroll">
+            <div className="sheet-scroll" ref={gridRef}>
               <table className="sheet-table">
                 <thead>
                   <tr>
@@ -189,10 +319,8 @@ export default function DataSheet({
                       <td>
                         <div className="sheet-time-cell">
                           <input
-                            type="number"
                             aria-label={`Tiempo, fila ${rowIdx + 1}`}
-                            value={t ?? ''}
-                            onChange={(e) => setCell(rowIdx, 'time', e.target.value)}
+                            {...cellProps(rowIdx, 0, 'time', t)}
                           />
                           <div className="marker-row">
                             <button
@@ -214,14 +342,11 @@ export default function DataSheet({
                           </div>
                         </div>
                       </td>
-                      {sensors.map((s) => (
+                      {sensors.map((s, colIdx) => (
                         <td key={s.id}>
                           <input
-                            type="number"
-                            step="0.01"
                             aria-label={`${s.name}, fila ${rowIdx + 1}`}
-                            value={series[s.id]?.[rowIdx] ?? ''}
-                            onChange={(e) => setCell(rowIdx, s.id, e.target.value)}
+                            {...cellProps(rowIdx, colIdx + 1, s.id, series[s.id]?.[rowIdx])}
                           />
                         </td>
                       ))}
@@ -230,19 +355,13 @@ export default function DataSheet({
                 </tbody>
               </table>
             </div>
-            {windowInverted ? (
-              <p className="method-note is-warning">
-                <strong>La ventana está invertida:</strong> el <strong>fin</strong> quedó antes que
-                el <strong>inicio</strong>, así que no se cuenta letalidad y el F0/FH da 0. Movelos
-                para que el fin quede en una fila posterior al inicio.
-              </p>
-            ) : (
-              <p className="method-note">
-                El F0/FH se cuenta sólo dentro de la ventana <strong>● inicio → ● fin</strong>; las
-                filas de afuera quedan atenuadas y no aportan letalidad. Por defecto va de la primera
-                a la última fila. Tocá <strong>fin</strong> otra vez para volver a "hasta el final".
-              </p>
-            )}
+            <p className="method-note">
+              El F0/FH se cuenta sólo dentro de la ventana <strong>● inicio → ● fin</strong>; las
+              filas de afuera quedan atenuadas y no aportan letalidad. Por defecto va de la primera
+              a la última fila. Tocá <strong>fin</strong> otra vez para volver a «hasta el final».
+              En la grilla: <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> mueven de fila,{' '}
+              <kbd>Tab</kbd> y <kbd>←</kbd> <kbd>→</kbd> de columna.
+            </p>
           </>
         )}
       </div>
@@ -257,7 +376,7 @@ export default function DataSheet({
               <p>
                 Pegá el bloque copiado de Excel: primera columna <strong>Tiempo</strong>, después una
                 columna por sensor en el mismo orden que la hoja. Reemplaza los datos actuales y
-                reinicia la ventana de conteo a la hoja completa.
+                reinicia la ventana de conteo a la hoja completa (se puede deshacer).
               </p>
               <textarea
                 rows={10}

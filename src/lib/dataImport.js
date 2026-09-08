@@ -1,5 +1,10 @@
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+
+// SheetJS pesa ~250 kB y sólo hace falta si el usuario sube un .xlsx. Se
+// carga bajo demanda para no meterlo en el bundle inicial de la corrida.
+async function loadXlsx() {
+  return import('xlsx');
+}
 
 /**
  * Convierte una matriz de filas (array de arrays, primera fila = encabezado)
@@ -46,6 +51,7 @@ export function parseCsv(fileOrText) {
 
 /** Parsea la primera hoja de un archivo Excel (.xlsx/.xls) a {time, sensorNames, values}. */
 export async function parseExcel(file) {
+  const XLSX = await loadXlsx();
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];

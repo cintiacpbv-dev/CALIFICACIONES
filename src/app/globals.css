@@ -1138,3 +1138,582 @@ textarea:focus {
 .method-col-group {
   border-inline-start: 1px solid var(--hairline);
 }
+
+/* ============================================================================
+   Estado de aceptación (cumple / no cumple)
+   ========================================================================= */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.pill-pass {
+  background: var(--accent-tint);
+  color: var(--g-700);
+  border-color: var(--g-200);
+}
+.pill-fail {
+  background: var(--danger-tint);
+  color: var(--danger);
+  border-color: rgba(168, 50, 42, 0.24);
+}
+.pill-unset {
+  background: var(--sunken);
+  color: var(--ink-3);
+  border-color: var(--border);
+}
+
+.tag-warn {
+  background: var(--warn-tint);
+  color: var(--warn);
+  border-color: rgba(164, 92, 10, 0.24);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.tag-fail {
+  background: var(--danger-tint);
+  color: var(--danger);
+  border-color: rgba(168, 50, 42, 0.24);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.data-table tbody tr.row-fail td {
+  background: color-mix(in srgb, var(--danger-tint) 60%, transparent);
+}
+
+/* Banda de veredicto: lo primero que se lee en Resultados cuando la corrida
+   tiene criterios cargados. */
+.verdict-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 18px;
+  border-block: 1px solid var(--hairline);
+  background: var(--n-25);
+}
+.verdict-banner.verdict-pass {
+  background: var(--accent-tint-soft);
+  border-color: var(--g-200);
+}
+.verdict-banner.verdict-fail {
+  background: var(--danger-tint);
+  border-color: rgba(168, 50, 42, 0.2);
+}
+
+.verdict-chip {
+  flex: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: var(--r-sm);
+  color: var(--n-0);
+  background: var(--ink-3);
+}
+.verdict-pass .verdict-chip {
+  background: var(--accent);
+}
+.verdict-fail .verdict-chip {
+  background: var(--danger);
+}
+
+.verdict-checks {
+  display: grid;
+  gap: 6px;
+  min-inline-size: 0;
+}
+.verdict-check {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+.check-mark {
+  font-weight: 700;
+  color: var(--accent);
+}
+.verdict-check.is-fail .check-mark {
+  color: var(--danger);
+}
+.check-label {
+  font-weight: 600;
+  color: var(--ink);
+}
+.check-value {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================================
+   Avisos de calidad de datos
+   ========================================================================= */
+.quality-card {
+  border-color: rgba(164, 92, 10, 0.28);
+}
+.quality-card.has-errors {
+  border-color: rgba(168, 50, 42, 0.3);
+}
+
+.issue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.issue {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.86rem;
+}
+.issue > div {
+  display: grid;
+  gap: 2px;
+}
+.issue strong {
+  color: var(--ink);
+}
+.issue span {
+  color: var(--ink-2);
+}
+.issue-dot {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  margin-block-start: 6px;
+  flex: none;
+  background: var(--warn);
+}
+.issue-error .issue-dot {
+  background: var(--danger);
+}
+
+/* ============================================================================
+   Notificaciones (toasts)
+   ========================================================================= */
+.toast-stack {
+  position: fixed;
+  inset-block-end: 20px;
+  inset-inline-end: 20px;
+  z-index: 100;
+  display: grid;
+  gap: 10px;
+  max-inline-size: min(420px, calc(100vw - 32px));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--ink-3);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  animation: toast-in 160ms ease-out;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.toast-success {
+  border-inline-start-color: var(--accent);
+}
+.toast-error {
+  border-inline-start-color: var(--danger);
+}
+.toast-info {
+  border-inline-start-color: var(--g-400);
+}
+
+.toast-text {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-inline-size: 0;
+}
+.toast-text strong {
+  font-size: 0.88rem;
+}
+.toast-text span {
+  font-size: 0.8rem;
+  color: var(--ink-2);
+}
+
+.toast-action {
+  flex: none;
+  border: 1px solid var(--border);
+  background: var(--sunken);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.toast-action:hover {
+  background: var(--accent-tint);
+}
+
+.toast-close {
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.toast-close:hover {
+  color: var(--ink);
+}
+
+/* ============================================================================
+   Esqueletos de carga
+   ========================================================================= */
+.skeleton {
+  display: block;
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg, var(--n-100) 25%, var(--n-50) 50%, var(--n-100) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.skeleton-card .card-body {
+  display: grid;
+  gap: 10px;
+}
+.skeleton-row {
+  min-block-size: 62px;
+  align-items: center;
+}
+
+/* ============================================================================
+   Detalles de interfaz
+   ========================================================================= */
+.appbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.appbar-context {
+  font-weight: 600;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-inline-size: 40ch;
+}
+
+/* Números alineados en columna: sin esto los decimales bailan y comparar
+   sensores de un vistazo se vuelve imposible. */
+.num,
+.num-head,
+.stat-value,
+.project-stat,
+.sheet-table input,
+.data-table td.num {
+  font-variant-numeric: tabular-nums;
+}
+/* Gana por especificidad a `.data-table th`, que alinea a la izquierda. */
+.data-table th.num-head,
+.num-head {
+  text-align: right;
+}
+.stat-value.danger {
+  color: var(--danger);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.cell-link {
+  font-weight: 600;
+}
+.cell-muted {
+  color: var(--ink-2);
+}
+
+kbd {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-block-end-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-block-end: 14px;
+}
+.meta-grid .span-2 {
+  grid-column: span 2;
+}
+
+.modal-sm {
+  max-inline-size: 460px;
+}
+
+.notice-error {
+  border-color: rgba(168, 50, 42, 0.3);
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.run-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .meta-grid .span-2 {
+    grid-column: span 1;
+  }
+  .appbar-context {
+    display: none;
+  }
+  .toast-stack {
+    inset-inline: 12px;
+    inset-block-end: 12px;
+    max-inline-size: none;
+  }
+  .verdict-banner {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+/* ============================================================================
+   Informe imprimible ("Guardar como PDF" del navegador)
+   ------------------------------------------------------------------------
+   El PDF se genera con el motor de impresión y no con una captura a canvas:
+   los gráficos son SVG, así que salen vectoriales a la resolución del papel.
+   En pantalla el informe no existe (.print-only); al imprimir desaparecen la
+   barra de la app, los botones, la hoja de datos y los formularios, y queda
+   encabezado + resultados + gráficos + calibración.
+   ========================================================================= */
+.print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm 12mm;
+  }
+
+  body {
+    background: var(--n-0);
+    font-size: 10pt;
+  }
+
+  .no-print,
+  .appbar,
+  .toast-stack,
+  .modal-backdrop,
+  .group-label,
+  .card-actions,
+  .seg,
+  .btn,
+  .file-btn {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  .page {
+    padding: 0;
+    max-inline-size: none;
+  }
+  .stack {
+    gap: 10px;
+  }
+
+  .card {
+    border: 1px solid #c9d2cd;
+    box-shadow: none;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .card-head {
+    padding: 8px 10px;
+  }
+  .card-body {
+    padding: 10px;
+  }
+  .method-note {
+    padding: 8px 10px;
+    font-size: 8pt;
+  }
+
+  /* Encabezado del informe */
+  .report-head {
+    border-block-end: 2px solid var(--accent);
+    padding-block-end: 10px;
+    margin-block-end: 12px;
+  }
+  .report-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .report-head h1 {
+    font-size: 15pt;
+    margin: 0;
+    color: var(--g-800);
+  }
+  .report-head p {
+    margin: 2px 0 0;
+    color: var(--ink-2);
+    font-size: 10pt;
+  }
+
+  .verdict {
+    font-size: 11pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 5px 12px;
+    border: 2px solid currentColor;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .verdict-pass {
+    color: var(--g-700);
+  }
+  .verdict-fail {
+    color: var(--danger);
+  }
+
+  .report-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 18px;
+    margin: 10px 0 0;
+  }
+  .report-meta > div {
+    break-inside: avoid;
+  }
+  .report-meta dt {
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+  }
+  .report-meta dd {
+    margin: 0;
+    font-size: 9.5pt;
+    color: var(--ink);
+  }
+
+  .report-params,
+  .report-calibration,
+  .report-notes {
+    break-inside: avoid;
+    margin-block: 12px;
+  }
+  .report-params h2,
+  .report-calibration h2,
+  .report-notes h2 {
+    font-size: 10pt;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-2);
+    border-block-end: 1px solid var(--border);
+    padding-block-end: 3px;
+    margin: 0 0 8px;
+  }
+
+  .report-foot {
+    margin-block-start: 14px;
+    padding-block-start: 8px;
+    border-block-start: 1px solid var(--border);
+    font-size: 7.5pt;
+    color: var(--ink-3);
+  }
+
+  /* Los gráficos y el veredicto tienen que salir con su color de fondo */
+  .verdict-banner,
+  .result-strip,
+  .pill,
+  .tag,
+  .data-table tbody tr.row-fail td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .recharts-wrapper,
+  .chart-body {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+/* La barra superior en pantallas chicas: los botones de informe bajan a una
+   segunda fila completa en vez de empujar el badge de autoguardado fuera de
+   la pantalla. */
+@media (max-width: 720px) {
+  .appbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .appbar .project-name-input {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+  }
+  .appbar-spacer {
+    display: none;
+  }
+  .appbar-actions {
+    order: 10;
+    flex-basis: 100%;
+  }
+  .appbar-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* En pantallas chicas las tablas de resultados scrollean en su contenedor en
+   vez de comprimir las columnas hasta partir cada palabra en dos líneas. */
+@media (max-width: 720px) {
+  .results-table-scroll .data-table {
+    min-inline-size: 560px;
+  }
+}

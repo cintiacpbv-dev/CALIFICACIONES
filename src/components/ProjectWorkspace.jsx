@@ -14,7 +14,11 @@ import {
 } from '@/lib/projectsApi';
 import { useDebouncedAutosave } from '@/lib/useDebouncedAutosave';
 import CalibrationPanel, { nextProbeColor } from './CalibrationPanel';
+import StudySummary from './StudySummary';
+import ConfirmDialog from './ConfirmDialog';
 import AutosaveBadge from './AutosaveBadge';
+import { SkeletonCard } from './Skeleton';
+import { useToast } from './Toast';
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -31,12 +35,14 @@ function minF0(resultsSummary) {
 /**
  * Vista de un proyecto = un equipo en calificación: datos del equipo,
  * termocuplas con su calibración (CalibrationPanel — se aplica a todas las
- * corridas), y la lista de corridas del estudio (cámara vacía, cargada,
- * distintos setpoints…).
+ * corridas), el resumen comparativo del estudio y la lista de corridas
+ * (cámara vacía, cargada, distintos setpoints…).
  */
 export default function ProjectWorkspace({ projectId }) {
   const router = useRouter();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [project, setProject] = useState(null);
   const [probes, setProbes] = useState([]);
   const [runs, setRuns] = useState([]);
@@ -44,22 +50,27 @@ export default function ProjectWorkspace({ projectId }) {
   const [description, setDescription] = useState('');
   const [equipmentCode, setEquipmentCode] = useState('');
   const [creatingRun, setCreatingRun] = useState(false);
+  const [pending, setPending] = useState(null);
 
-  async function refresh() {
-    const { project, probes, runs } = await getProjectOverview(projectId);
-    setProject(project);
-    setProbes(probes);
-    setRuns(runs);
-    setName(project.name);
-    setDescription(project.description ?? '');
-    setEquipmentCode(project.equipment_code ?? '');
-    setLoading(false);
-  }
+  const refresh = useCallback(async () => {
+    try {
+      const { project, probes, runs } = await getProjectOverview(projectId);
+      setProject(project);
+      setProbes(probes);
+      setRuns(runs);
+      setName(project.name);
+      setDescription(project.description ?? '');
+      setEquipmentCode(project.equipment_code ?? '');
+    } catch (err) {
+      setLoadError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
 
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [refresh]);
 
   // --- Autoguardado de datos del proyecto + probes -------------------------
   const snapshot = useMemo(
@@ -90,18 +101,16 @@ export default function ProjectWorkspace({ projectId }) {
   const autosaveStatus = useDebouncedAutosave(snapshot, saveSnapshot);
 
   async function handleAddProbe() {
-    const probe = await createProbe(projectId, {
-      code: `C${String(probes.length + 1).padStart(2, '0')}`,
-      color: nextProbeColor(probes.length),
-      sortOrder: probes.length,
-    });
-    setProbes((prev) => [...prev, probe]);
-  }
-
-  async function handleRemoveProbe(id) {
-    if (!confirm('Eliminar esta termocupla? Sus lecturas en las corridas quedan huérfanas.')) return;
-    await deleteProbe(id);
-    setProbes((prev) => prev.filter((p) => p.id !== id));
+    try {
+      const probe = await createProbe(projectId, {
+        code: `C${String(probes.length + 1).padStart(2, '0')}`,
+        color: nextProbeColor(probes.length),
+        sortOrder: probes.length,
+      });
+      setProbes((prev) => [...prev, probe]);
+    } catch (err) {
+      toast.error('No se pudo agregar la termocupla', err.message);
+    }
   }
 
   function handleUpdateProbe(id, fields) {
@@ -111,24 +120,63 @@ export default function ProjectWorkspace({ projectId }) {
   async function handleCreateRun() {
     setCreatingRun(true);
     try {
-      const run = await createRun(projectId, { name: `Corrida ${runs.length + 1}`, sortOrder: runs.length });
+      const run = await createRun(projectId, {
+        name: `Corrida ${runs.length + 1}`,
+        sortOrder: runs.length,
+      });
       router.push(`/proyecto/${projectId}/corrida/${run.id}`);
     } catch (err) {
-      alert('No se pudo crear la corrida: ' + err.message);
+      toast.error('No se pudo crear la corrida', err.message);
       setCreatingRun(false);
     }
   }
 
-  async function handleDeleteRun(id, runName) {
-    if (!confirm(`Eliminar la corrida "${runName}"? Esta acción no se puede deshacer.`)) return;
-    await deleteRun(id);
-    setRuns((prev) => prev.filter((r) => r.id !== id));
+  async function confirmPending() {
+    const target = pending;
+    setPending(null);
+    if (!target) return;
+    try {
+      if (target.kind === 'probe') {
+        await deleteProbe(target.id);
+        setProbes((prev) => prev.filter((p) => p.id !== target.id));
+        toast.success(`Termocupla ${target.label} eliminada`);
+      } else {
+        await deleteRun(target.id);
+        setRuns((prev) => prev.filter((r) => r.id !== target.id));
+        toast.success(`Corrida "${target.label}" eliminada`);
+      }
+    } catch (err) {
+      toast.error('No se pudo eliminar', err.message);
+    }
   }
 
-  if (loading || !project) {
+  if (loading) {
+    return (
+      <>
+        <header className="appbar">
+          <span className="brand">
+            <span className="brand-mark">F0</span>
+            <span className="brand-name">Letalidad térmica</span>
+          </span>
+        </header>
+        <div className="page">
+          <div className="stack">
+            <SkeletonCard lines={3} />
+            <SkeletonCard lines={5} />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (loadError || !project) {
     return (
       <div className="page">
-        <p className="empty">Cargando proyecto…</p>
+        <div className="notice notice-error">
+          <div>
+            <strong>No se pudo abrir el proyecto.</strong> {loadError}
+          </div>
+        </div>
       </div>
     );
   }
@@ -140,6 +188,8 @@ export default function ProjectWorkspace({ projectId }) {
           <span className="brand-mark">F0</span>
           <span className="brand-name">Letalidad térmica</span>
         </Link>
+        <span className="appbar-divider" />
+        <span className="appbar-context">{project.name}</span>
         <span className="appbar-spacer" />
         <AutosaveBadge status={autosaveStatus} />
       </header>
@@ -178,11 +228,16 @@ export default function ProjectWorkspace({ projectId }) {
             </div>
           </section>
 
+          <StudySummary projectId={projectId} runs={runs} probes={probes} />
+
           <CalibrationPanel
             probes={probes}
             onUpdateProbe={handleUpdateProbe}
             onAddProbe={handleAddProbe}
-            onRemoveProbe={handleRemoveProbe}
+            onRemoveProbe={(id) => {
+              const probe = probes.find((p) => p.id === id);
+              setPending({ kind: 'probe', id, label: probe?.code ?? '' });
+            }}
           />
 
           <section className="card">
@@ -206,12 +261,21 @@ export default function ProjectWorkspace({ projectId }) {
                 <ul className="run-list">
                   {runs.map((r) => {
                     const f0 = minF0(r.results_summary);
+                    const verdict = r.acceptance_summary?.verdict ?? 'unset';
                     return (
                       <li className="run-row" key={r.id}>
                         <Link href={`/proyecto/${projectId}/corrida/${r.id}`} className="run-link">
-                          <div className="run-name">{r.name}</div>
+                          <div className="run-name">
+                            {r.name}
+                            {verdict !== 'unset' && (
+                              <span className={`pill pill-${verdict}`}>
+                                {verdict === 'pass' ? 'Cumple' : 'No cumple'}
+                              </span>
+                            )}
+                          </div>
                           <div className="run-meta">
                             <span>Ref. F0: {r.ref_temp_f0}°C</span>
+                            {r.load_description && <span>{r.load_description}</span>}
                             <span>Actualizado {formatDate(r.updated_at)}</span>
                           </div>
                         </Link>
@@ -222,7 +286,7 @@ export default function ProjectWorkspace({ projectId }) {
                         )}
                         <button
                           className="btn btn-danger btn-sm"
-                          onClick={() => handleDeleteRun(r.id, r.name)}
+                          onClick={() => setPending({ kind: 'run', id: r.id, label: r.name })}
                           aria-label={`Eliminar ${r.name}`}
                         >
                           Eliminar
@@ -236,6 +300,26 @@ export default function ProjectWorkspace({ projectId }) {
           </section>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pending != null}
+        title={pending?.kind === 'probe' ? 'Eliminar termocupla' : 'Eliminar corrida'}
+        message={
+          pending?.kind === 'probe' ? (
+            <>
+              Se elimina <strong>{pending?.label}</strong> del equipo. Sus lecturas quedan huérfanas
+              en las corridas que ya la usaban y dejan de calcularse.
+            </>
+          ) : (
+            <>
+              Se elimina <strong>{pending?.label}</strong> con toda su hoja de datos, sus parámetros
+              y sus resultados. No se puede deshacer.
+            </>
+          )
+        }
+        onConfirm={confirmPending}
+        onCancel={() => setPending(null)}
+      />
     </>
   );
 }

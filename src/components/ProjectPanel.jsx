@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createProject, deleteProject, listProjects } from '@/lib/projectsApi';
 import { supabase } from '@/lib/supabaseClient';
+import ConfirmDialog from './ConfirmDialog';
+import { ListSkeleton } from './Skeleton';
+import { useToast } from './Toast';
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('es', {
@@ -17,14 +20,18 @@ function formatDate(iso) {
 /** Panel central: lista todos los proyectos (equipos) guardados en Supabase. */
 export default function ProjectPanel() {
   const router = useRouter();
+  const toast = useToast();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [pending, setPending] = useState(null);
 
   async function refresh() {
     setLoading(true);
     try {
       setProjects(await listProjects());
+    } catch (err) {
+      toast.error('No se pudo cargar la lista de proyectos', err.message);
     } finally {
       setLoading(false);
     }
@@ -40,15 +47,22 @@ export default function ProjectPanel() {
       const project = await createProject();
       router.push(`/proyecto/${project.id}`);
     } catch (err) {
-      alert('No se pudo crear el proyecto: ' + err.message);
+      toast.error('No se pudo crear el proyecto', err.message);
       setCreating(false);
     }
   }
 
-  async function handleDelete(id, name) {
-    if (!confirm(`Eliminar "${name}" definitivamente? Esta acción no se puede deshacer.`)) return;
-    await deleteProject(id);
-    refresh();
+  async function confirmDelete() {
+    const target = pending;
+    setPending(null);
+    if (!target) return;
+    try {
+      await deleteProject(target.id);
+      toast.success(`Proyecto "${target.name}" eliminado`);
+      refresh();
+    } catch (err) {
+      toast.error('No se pudo eliminar el proyecto', err.message);
+    }
   }
 
   if (!supabase) {
@@ -76,7 +90,7 @@ export default function ProjectPanel() {
       </div>
 
       {loading ? (
-        <p className="empty">Cargando…</p>
+        <ListSkeleton rows={3} />
       ) : projects.length === 0 ? (
         <div className="card">
           <p className="empty">
@@ -98,7 +112,7 @@ export default function ProjectPanel() {
               </Link>
               <button
                 className="btn btn-danger btn-sm"
-                onClick={() => handleDelete(p.id, p.name)}
+                onClick={() => setPending({ id: p.id, name: p.name })}
                 aria-label={`Eliminar ${p.name}`}
               >
                 Eliminar
@@ -107,6 +121,19 @@ export default function ProjectPanel() {
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={pending != null}
+        title="Eliminar proyecto"
+        message={
+          <>
+            Se elimina <strong>{pending?.name}</strong> con todas sus termocuplas, sus corridas y
+            las hojas de datos de cada una. No se puede deshacer.
+          </>
+        }
+        onConfirm={confirmDelete}
+        onCancel={() => setPending(null)}
+      />
     </>
   );
 }

@@ -95,6 +95,10 @@ create index if not exists idx_probes_project_id on probes(project_id);
 -- results_summary: cache por probe con AMBOS métodos de integración, para
 -- listar sin recalcular:
 --   {probeId: {f0Trap, fhTrap, f0Sum, fhSum}}
+-- acceptance_summary: cache del veredicto {verdict, checks[]} contra los
+-- criterios de aceptación de la corrida, para que el resumen del estudio
+-- pueda mostrar cumple/no cumple sin traer la data cruda de cada corrida.
+-- Los dos son DERIVADOS: se recalculan en el cliente y se pueden borrar.
 -- Todas las corridas de un proyecto usan las mismas termocuplas (así están
 -- armadas las planillas reales que se tomaron de referencia: un mismo set
 -- de ~12 sensores se repite en cada corrida del equipo), así que una
@@ -119,6 +123,21 @@ create table if not exists runs (
   end_index integer,
   raw_data jsonb not null default '{"time": [], "series": {}}'::jsonb,
   results_summary jsonb not null default '{}'::jsonb,
+  acceptance_summary jsonb not null default '{}'::jsonb,
+
+  -- Criterios de aceptación (null = criterio no definido, no se evalúa).
+  f0_min_required numeric,
+  fh_min_required numeric,
+  temp_low_limit numeric,
+  temp_high_limit numeric,
+
+  -- Condición de trabajo de la corrida (para el informe).
+  run_date date,
+  batch_code text,
+  cycle_code text,
+  load_description text,
+  operator text,
+  notes text,
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -126,10 +145,25 @@ create table if not exists runs (
 
 create index if not exists idx_runs_project_id on runs(project_id);
 
--- Idempotente para bases que ya tenían la tabla runs sin esta columna.
+-- Idempotente para bases que ya tenían la tabla runs sin estas columnas.
 -- Va ANTES de los comments: si la tabla ya existía, el "create table if not
 -- exists" de arriba no la agrega y comentar una columna inexistente falla.
 alter table runs add column if not exists end_index integer;
+
+-- v3: criterios de aceptación + condición de trabajo. Todas nullables:
+-- null en un criterio significa "no definido", y esa fila del informe se
+-- muestra como "sin criterio" en vez de cumple/no cumple.
+alter table runs add column if not exists acceptance_summary jsonb not null default '{}'::jsonb;
+alter table runs add column if not exists f0_min_required numeric;
+alter table runs add column if not exists fh_min_required numeric;
+alter table runs add column if not exists temp_low_limit numeric;
+alter table runs add column if not exists temp_high_limit numeric;
+alter table runs add column if not exists run_date date;
+alter table runs add column if not exists batch_code text;
+alter table runs add column if not exists cycle_code text;
+alter table runs add column if not exists load_description text;
+alter table runs add column if not exists operator text;
+alter table runs add column if not exists notes text;
 
 comment on column runs.start_index is
   'Fila (0-based) desde donde arranca el conteo de F0/FH. Se marca a mano en la hoja de datos.';
@@ -137,6 +171,18 @@ comment on column runs.end_index is
   'Última fila (0-based, inclusiva) del conteo de F0/FH; null = hasta el final. Se marca a mano.';
 comment on column runs.raw_data is
   'Data cruda de la corrida: {time:number[], series:{probeId:number[]}}. Única fuente de verdad.';
+comment on column runs.acceptance_summary is
+  'Cache del veredicto de aceptación {verdict, checks[]} para listar el estudio sin recalcular. Derivado, se puede borrar.';
+comment on column runs.f0_min_required is
+  'F0 mínimo exigido (min) para aceptar la corrida. null = sin criterio definido.';
+comment on column runs.fh_min_required is
+  'FH mínimo exigido (min) para aceptar la corrida. null = sin criterio definido.';
+comment on column runs.temp_low_limit is
+  'Límite inferior de temperatura (°C) dentro de la ventana de conteo. null = sin criterio.';
+comment on column runs.temp_high_limit is
+  'Límite superior de temperatura (°C) dentro de la ventana de conteo. null = sin criterio.';
+comment on column runs.load_description is
+  'Descripción de la carga (cámara vacía, N viales, etc.). Va al encabezado del informe.';
 
 -- ----------------------------------------------------------------------------
 -- updated_at automático

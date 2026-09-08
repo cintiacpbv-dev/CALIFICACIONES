@@ -2,6 +2,7 @@
 
 import { uploadCalibrationCert } from '@/lib/projectsApi';
 import { fitCalibration } from '@/lib/calibration';
+import { useToast } from './Toast';
 
 // Paleta categórica validada (orden fijo, no ciclado por hue), abierta con
 // el verde de marca sin perder la separación segura para daltonismo entre
@@ -43,12 +44,15 @@ export function nextProbeColor(existingCount) {
  * }} props
  */
 export default function CalibrationPanel({ probes, onUpdateProbe, onAddProbe, onRemoveProbe }) {
+  const toast = useToast();
+
   async function handleCertUpload(probeId, file) {
     try {
       const url = await uploadCalibrationCert(probeId, file);
       onUpdateProbe(probeId, { certificate_file_url: url });
+      toast.success('Certificado subido', file.name);
     } catch (err) {
-      alert('No se pudo subir el certificado: ' + err.message);
+      toast.error('No se pudo subir el certificado', err.message);
     }
   }
 
@@ -106,11 +110,13 @@ export default function CalibrationPanel({ probes, onUpdateProbe, onAddProbe, on
                       onChange={(e) => onUpdateProbe(probe.id, { code: e.target.value })}
                     />
                     {fit ? (
-                      <span className="card-hint">
+                      <span className="card-hint mono">
                         corregida = {fit.intercept.toFixed(3)} + {fit.slope.toFixed(4)} × cruda
                       </span>
                     ) : (
-                      <span className="card-hint">Cargá 2 puntos para activar la corrección</span>
+                      <span className="tag tag-warn">
+                        sin calibrar — se usa la lectura cruda
+                      </span>
                     )}
                     <div className="card-actions">
                       <button
